@@ -10,6 +10,7 @@ connectDB();
 
 // Use routes
 app.use("/api", require("./routes/authRoute"));
+app.use('/patient', require("./routes/patientRoute"));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
