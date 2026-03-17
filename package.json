@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/VirajithaDilsh/channeling-center-management-system-backend#readme",
   "dependencies": {
+    "aws4": "^1.13.2",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
