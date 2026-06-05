@@ -77,14 +77,18 @@ exports.updateDoctor = async (req, res) => {
 exports.deleteDoctor = async (req, res) => {
 
   try {
-
-    await Doctor.findByIdAndDelete(req.params.id);
+    console.log("Deleting ID:", req.params.id);
+    const doctor = await Doctor.findByIdAndDelete(req.params.id);
+    if (!doctor){
+      return res.status(404).josn({message:"Doctor not found"});
+    }
 
     res.json({ message: "Doctor deleted successfully" });
 
   } catch (error) {
+    console.error(error);
 
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: "Error deleting doctor" });
 
   }
 
