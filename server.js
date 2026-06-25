@@ -12,13 +12,13 @@ const app = express();
 // middleware
 app.use(cors());
 app.use(express.json());
-app.use("/api/doctors", doctorRoutes);
 connectDB();
 
 // routes
 app.use("/api", require("./routes/authRoute"));
 app.use('/patient', require("./routes/patientRoute"));
 app.use("/api/medicines", medicineRoutes);
+app.use("/api/doctors", doctorRoutes);
 
 // test route
 app.get("/", (req, res) => {
