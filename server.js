@@ -12,16 +12,12 @@ const app = express();
 // middleware
 app.use(cors());
 app.use(express.json());
-<<<<<<< HEAD
-
-// database connection
-=======
 app.use("/api/doctors", doctorRoutes);
->>>>>>> vishuddika
 connectDB();
 
 // routes
 app.use("/api", require("./routes/authRoute"));
+app.use('/patient', require("./routes/patientRoute"));
 app.use("/api/medicines", medicineRoutes);
 
 // test route
