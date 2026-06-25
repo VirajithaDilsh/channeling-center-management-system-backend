@@ -1,20 +1,16 @@
 const express = require("express");
+const {
+    addMedicine,
+    getMedicines,
+    updateMedicine,
+    deleteMedicine
+} = require("../controllers/medicineController");
+
 const router = express.Router();
-const Medicine = require("../models/Medicine");
 
-router.post("/", async (req, res) => {
-    try {
-        const medicine = new Medicine(req.body);
-        const saved = await medicine.save();
-        res.status(201).json(saved);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-});
-
-router.get("/", async (req, res) => {
-    const medicines = await Medicine.find();
-    res.json(medicines);
-});
+router.post("/", addMedicine);
+router.get("/", getMedicines);
+router.put("/:id", updateMedicine);
+router.delete("/:id", deleteMedicine);
 
 module.exports = router;
