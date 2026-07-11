@@ -20,6 +20,7 @@ app.use("/api", require("./routes/authRoute"));
 app.use('/patient', require("./routes/patientRoute"));
 app.use("/api/medicines", medicineRoutes);
 app.use("/api/doctors", doctorRoutes);
+app.use("/api/admin", require("./routes/adminRoutes"));
 
 // test route
 app.get("/", (req, res) => {
