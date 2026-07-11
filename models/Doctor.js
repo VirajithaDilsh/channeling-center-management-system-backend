@@ -29,6 +29,10 @@ const doctorSchema = new mongoose.Schema({
     type: String
   },
 
+  experience: {
+    type: String
+  },
+  
   status: {
     type: String,
     default: "Active"
