@@ -18,9 +18,11 @@ connectDB();
 // routes
 app.use("/api", require("./routes/authRoute"));
 app.use('/patient', require("./routes/patientRoute"));
+app.use('/patient', require("./routes/channelingRoute"));
 app.use("/api/medicines", medicineRoutes);
 app.use("/api/doctors", doctorRoutes);
 app.use("/api/admin", require("./routes/adminRoutes"));
+app.use("/api/appointments", require("./routes/appointmentRoutes"));
 
 // test route
 app.get("/", (req, res) => {

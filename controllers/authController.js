@@ -1,21 +1,37 @@
-// controllers/authController.js
-let adminEmail = "admin@example.com";
-let adminPassword = "admin123";
+const jwt = require("jsonwebtoken");
+const Admin = require("../models/Admin");
 
-exports.login = (req, res) => {
+exports.login = async (req, res) => {
   const { email, password } = req.body;
-  if (email === adminEmail && password === adminPassword) {
-    return res.json({ message: "Login successful" });
-  } else {
-    return res.status(400).json({ message: "Invalid credentials" });
+  try {
+    const admin = await Admin.findOne({ email });
+    if (!admin) return res.status(400).json({ message: "Invalid credentials" });
+
+    const matches = await admin.comparePassword(password);
+    if (!matches) return res.status(400).json({ message: "Invalid credentials" });
+
+    const token = jwt.sign(
+      { id: admin._id, email: admin.email, role: admin.role, name: admin.name },
+      process.env.JWT_SECRET,
+      { expiresIn: "8h" }
+    );
+
+    return res.json({ message: "Login successful", token, role: admin.role });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
   }
 };
 
-exports.resetPassword = (req, res) => {
+exports.resetPassword = async (req, res) => {
   const { email, newPassword } = req.body;
-  if (email !== adminEmail) {
-    return res.status(400).json({ message: "Email not found" });
+  try {
+    const admin = await Admin.findOne({ email });
+    if (!admin) return res.status(400).json({ message: "Email not found" });
+
+    admin.password = newPassword;
+    await admin.save();
+    res.json({ message: "Password reset successfully! You can now login." });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
-  adminPassword = newPassword;
-  res.json({ message: "Password reset successfully! You can now login." });
 };

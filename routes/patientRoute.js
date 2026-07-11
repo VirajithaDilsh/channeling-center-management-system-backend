@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const patientController = require('../controllers/patientController');
+const { verifyToken, authorize } = require('../middleware/authMiddleware');
+
+router.use(verifyToken, authorize('admin', 'doctor', 'patient_manager'));
 
 // CRUD routes
 router.get('/', patientController.getPatients);
