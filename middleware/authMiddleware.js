@@ -19,3 +19,11 @@ exports.authorize = (...allowedRoles) => (req, res, next) => {
   }
   next();
 };
+
+exports.requirePermission = (...allowedPermissions) => (req, res, next) => {
+  const userPermissions = (req.user && req.user.permissions) || [];
+  if (!allowedPermissions.some((perm) => userPermissions.includes(perm))) {
+    return res.status(403).json({ message: "Not authorized for this resource" });
+  }
+  next();
+};

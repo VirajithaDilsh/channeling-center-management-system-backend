@@ -9,6 +9,7 @@ const appointmentSchema = new mongoose.Schema({
   time: String,
   reason: String,
   status: { type: String, enum: ["Scheduled", "Completed", "Cancelled"], default: "Scheduled" },
+  visitSessionId: { type: mongoose.Schema.Types.ObjectId, ref: "VisitSession" },
 }, { timestamps: true });
 
 module.exports = mongoose.model("Appointment", appointmentSchema);
