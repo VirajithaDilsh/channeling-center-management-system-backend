@@ -7,12 +7,7 @@ const patientSchema = new mongoose.Schema({
   gender: String,
   phone: String,
   blood: String,
-  doctor: String,
-  address: String,
-   disease: String,
-  visit: Date,
-  history: String,
-  description: String
+  address: String
 }, { timestamps: true });
 
 module.exports = mongoose.model('Patient', patientSchema);
