@@ -1,4 +1,5 @@
 const Appointment = require("../models/Appointment");
+const { openForAppointment } = require("./visitSessionController");
 
 exports.getAppointments = async (req, res) => {
   try {
@@ -13,6 +14,17 @@ exports.createAppointment = async (req, res) => {
   try {
     const appointment = new Appointment(req.body);
     await appointment.save();
+
+    // Opens the Unified Patient Ledger for this visit: posts Doctor Fee +
+    // Center Fee line items. Booking still succeeds even if this fails since
+    // the appointment itself is the primary record; billing can be opened
+    // manually as a fallback.
+    try {
+      await openForAppointment(appointment);
+    } catch (ledgerErr) {
+      console.error("Failed to open visit session for appointment:", ledgerErr.message);
+    }
+
     res.status(201).json(appointment);
   } catch (err) {
     res.status(400).json({ message: err.message });
