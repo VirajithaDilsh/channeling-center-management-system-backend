@@ -37,6 +37,8 @@ app.use("/api/permissions", require("./routes/permissionRoutes"));
 app.use("/api/appointments", require("./routes/appointmentRoutes"));
 app.use("/api/visit-sessions", require("./routes/visitSessionRoutes"));
 app.use("/api/prescriptions", require("./routes/prescriptionRoutes"));
+app.use("/api/consultations", require("./routes/consultationRoutes"));
+app.use("/api/external-prescriptions", require("./routes/externalPrescriptionRoutes"));
 app.use("/api/settings", require("./routes/settingsRoutes"));
 
 // test route

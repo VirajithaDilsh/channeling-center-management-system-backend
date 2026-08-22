@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const Prescription = require("../models/Prescription");
 const VisitSession = require("../models/VisitSession");
 const Medicine = require("../models/Medicine");
+const { resolveDoctorIdentity } = require("../services/doctorIdentityService");
 
 class HttpError extends Error {
   constructor(status, message) {
@@ -32,10 +33,21 @@ exports.getPharmacyQueue = async (req, res) => {
 // Doctor writes an e-prescription -> queues items to the pharmacy and moves
 // the visit session into PENDING_PHARMACY.
 exports.createPrescription = async (req, res) => {
-  const { appointmentId, patientId, patientName, doctorId, doctorName, diagnosis, notes, items } = req.body;
+  const { appointmentId, patientId, patientName, diagnosis, notes, items } = req.body;
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ message: "At least one prescription item is required" });
   }
+
+  // Authorship comes from the authenticated caller's linked Doctor profile.
+  // Any doctorId/doctorName in the body is deliberately ignored, so a request
+  // can't attribute a prescription to another doctor.
+  const identity = await resolveDoctorIdentity(req);
+  if (!identity) {
+    return res.status(403).json({
+      message: "No doctor profile is linked to this account, so a prescription cannot be issued from it",
+    });
+  }
+  const { doctorId, doctorName } = identity;
 
   const dbSession = await mongoose.startSession();
   try {
@@ -126,7 +138,10 @@ exports.dispenseItem = async (req, res) => {
       if (!prescription) throw new HttpError(404, "Prescription not found");
       const item = prescription.items.id(req.params.itemId);
       if (!item) throw new HttpError(404, "Prescription item not found");
-      if (item.status !== "QUEUED") throw new HttpError(409, `Item already ${item.status}`);
+      // PARTIAL is dispensable too — it means some quantity is still owed.
+      if (!["QUEUED", "PARTIAL"].includes(item.status)) {
+        throw new HttpError(409, `Item already ${item.status}`);
+      }
 
       const visitSession = await VisitSession.findById(prescription.visitSessionId).session(dbSession);
       if (!visitSession) throw new HttpError(404, "Visit session not found");
@@ -191,7 +206,12 @@ exports.rejectItem = async (req, res) => {
       if (!prescription) throw new HttpError(404, "Prescription not found");
       const item = prescription.items.id(req.params.itemId);
       if (!item) throw new HttpError(404, "Prescription item not found");
-      if (item.status !== "QUEUED") throw new HttpError(409, `Item already ${item.status}`);
+      // Rejecting a PARTIAL item writes off the quantity still owed — without
+      // this the remainder could never be closed out and the visit session
+      // would sit in PENDING_PHARMACY forever.
+      if (!["QUEUED", "PARTIAL"].includes(item.status)) {
+        throw new HttpError(409, `Item already ${item.status}`);
+      }
 
       const visitSession = await VisitSession.findById(prescription.visitSessionId).session(dbSession);
       if (!visitSession) throw new HttpError(404, "Visit session not found");
