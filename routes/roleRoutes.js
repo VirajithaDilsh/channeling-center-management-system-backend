@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { verifyToken, requirePermission } = require("../middleware/authMiddleware");
 
 const {
   createRole,
@@ -9,14 +10,16 @@ const {
   deleteRole
 } = require("../controllers/roleController");
 
-router.post("/", createRole);
+router.use(verifyToken);
 
-router.get("/", getRoles);
+router.post("/", requirePermission("admin_write", "admin_allow_all"), createRole);
 
-router.get("/:id", getRoleById);
+router.get("/", requirePermission("admin_read", "admin_allow_all"), getRoles);
 
-router.put("/:id", updateRole);
+router.get("/:id", requirePermission("admin_read", "admin_allow_all"), getRoleById);
 
-router.delete("/:id", deleteRole);
+router.put("/:id", requirePermission("admin_edit", "admin_allow_all"), updateRole);
+
+router.delete("/:id", requirePermission("admin_edit", "admin_allow_all"), deleteRole);
 
 module.exports = router;

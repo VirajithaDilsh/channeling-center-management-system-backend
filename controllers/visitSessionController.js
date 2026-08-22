@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 const VisitSession = require("../models/VisitSession");
 const Prescription = require("../models/Prescription");
 const Doctor = require("../models/Doctor");
-const { CENTER_FEE } = require("../config/billingConfig");
+const SystemSettings = require("../models/SystemSettings");
 
 class HttpError extends Error {
   constructor(status, message) {
@@ -16,6 +16,8 @@ class HttpError extends Error {
 exports.openForAppointment = async (appointment) => {
   const doctor = await Doctor.findById(appointment.doctorId);
   const doctorFee = doctor?.fee || 0;
+  const settings = await SystemSettings.getSingleton();
+  const centerFee = settings.payments.centerFee;
 
   const session = new VisitSession({
     appointmentId: appointment._id,
@@ -26,7 +28,7 @@ exports.openForAppointment = async (appointment) => {
     status: "OPEN",
     lineItems: [
       { type: "DOCTOR_FEE", description: `Consultation - Dr. ${appointment.doctorName || doctor?.name || ""}`, qty: 1, unitPrice: doctorFee, amount: doctorFee },
-      { type: "CENTER_FEE", description: "Channeling Center Fee", qty: 1, unitPrice: CENTER_FEE, amount: CENTER_FEE },
+      { type: "CENTER_FEE", description: "Channeling Center Fee", qty: 1, unitPrice: centerFee, amount: centerFee },
     ],
     statusHistory: [{ from: null, to: "OPEN" }],
   });
@@ -98,6 +100,11 @@ exports.addPayment = async (req, res) => {
     await dbSession.withTransaction(async () => {
       const session = await VisitSession.findById(req.params.id).session(dbSession);
       if (!session) throw new HttpError(404, "Visit session not found");
+
+      const settings = await SystemSettings.getSingleton();
+      if (method && !settings.payments.enabledPaymentMethods.includes(method)) {
+        throw new HttpError(400, `Payment method "${method}" is not enabled`);
+      }
       if (!["READY_FOR_PAYMENT"].includes(session.status)) {
         throw new HttpError(409, `Cannot take payment while session is ${session.status}`);
       }

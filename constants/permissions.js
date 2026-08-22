@@ -1,37 +1,65 @@
+const MODULES = [
+  { slug: "admin", label: "Admin" },
+  { slug: "doctors", label: "Doctors" },
+  { slug: "patients", label: "Patients" },
+  { slug: "appointments", label: "Appointments" },
+  { slug: "inventory", label: "Inventory" },
+  { slug: "pharmacy", label: "Pharmacy" },
+  { slug: "billing", label: "Billing" },
+  { slug: "reports", label: "Reports" },
+  { slug: "settings", label: "Settings" },
+];
+
+const ACTIONS = [
+  { suffix: "read", label: "Read" },
+  { suffix: "write", label: "Write" },
+  { suffix: "edit", label: "Edit" },
+  { suffix: "allow_all", label: "Allow All" },
+];
+
 const PERMISSIONS = [
-  { key: "manage_admins", label: "Manage Admins & Roles", module: "Admin" },
-  { key: "view_doctors", label: "View & Manage Doctors", module: "Doctors" },
-  { key: "manage_patients", label: "Manage Patients", module: "Patients" },
-  { key: "view_appointments", label: "View Appointments", module: "Appointments" },
-  { key: "manage_inventory", label: "Manage Inventory", module: "Inventory" },
-  { key: "manage_pharmacy", label: "Manage Pharmacy Queue", module: "Pharmacy" },
-  { key: "manage_billing", label: "Manage Billing & Payments", module: "Billing" },
-  { key: "view_reports", label: "View Reports", module: "Reports" },
-  { key: "doctor_portal", label: "Doctor Portal (Consultations & Prescriptions)", module: "Doctor Portal" },
+  ...MODULES.flatMap((m) =>
+    ACTIONS.map((a) => ({
+      key: `${m.slug}_${a.suffix}`,
+      label: `${a.label} — ${m.label}`,
+      module: m.label,
+      action: a.suffix,
+    }))
+  ),
+  {
+    key: "doctor_portal",
+    label: "Doctor Portal (Consultations & Prescriptions)",
+    module: "Doctor Portal",
+    action: "access",
+  },
 ];
 
 const ALL_PERMISSION_KEYS = PERMISSIONS.map((p) => p.key);
 
 const DEFAULT_ROLE_PERMISSIONS = {
   admin: ALL_PERMISSION_KEYS,
-  doctor: ["manage_patients", "doctor_portal"],
+  // patients_allow_all/appointments_allow_all/doctors_read/inventory_read:
+  // Consultation.jsx and DoctorHome.jsx call getAppointments/updateAppointment/
+  // getMedicines/getDoctors directly, so the doctor role needs read access to
+  // all of those, not just the doctor_portal gate itself.
+  doctor: ["patients_allow_all", "appointments_allow_all", "doctors_read", "inventory_read", "doctor_portal"],
   patient_manager: [
-    "view_doctors",
-    "manage_patients",
-    "view_appointments",
-    "manage_inventory",
-    "manage_pharmacy",
-    "view_reports",
+    "doctors_allow_all",
+    "patients_allow_all",
+    "appointments_allow_all",
+    "inventory_allow_all",
+    "pharmacy_allow_all",
+    "reports_read",
   ],
   billing: [
-    "view_doctors",
-    "view_appointments",
-    "manage_inventory",
-    "manage_pharmacy",
-    "manage_billing",
-    "view_reports",
+    "doctors_allow_all",
+    "appointments_allow_all",
+    "inventory_allow_all",
+    "pharmacy_allow_all",
+    "billing_allow_all",
+    "reports_read",
   ],
-  reception: ["view_doctors", "view_appointments"],
+  reception: ["doctors_read", "appointments_read"],
 };
 
-module.exports = { PERMISSIONS, ALL_PERMISSION_KEYS, DEFAULT_ROLE_PERMISSIONS };
+module.exports = { MODULES, ACTIONS, PERMISSIONS, ALL_PERMISSION_KEYS, DEFAULT_ROLE_PERMISSIONS };
