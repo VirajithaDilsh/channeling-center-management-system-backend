@@ -35,7 +35,12 @@ const doctorSchema = new mongoose.Schema({
   
   status: {
     type: String,
-    default: "Active"
+    default: "Available"
+  },
+
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Admin"
   }
 
 }, { timestamps: true });
