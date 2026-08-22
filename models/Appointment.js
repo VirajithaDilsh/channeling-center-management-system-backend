@@ -7,6 +7,7 @@ const appointmentSchema = new mongoose.Schema({
   doctorName: String,
   date: { type: Date, required: true },
   time: String,
+  durationMinutes: Number,
   reason: String,
   status: { type: String, enum: ["Scheduled", "Completed", "Cancelled"], default: "Scheduled" },
   visitSessionId: { type: mongoose.Schema.Types.ObjectId, ref: "VisitSession" },

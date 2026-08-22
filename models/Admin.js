@@ -32,6 +32,11 @@ const adminSchema = new mongoose.Schema({
   password: {
     type: String,
     required: true
+  },
+
+  doctorId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Doctor"
   }
 
 }, { timestamps: true });

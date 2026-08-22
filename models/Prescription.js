@@ -34,9 +34,13 @@ const prescriptionSchema = new mongoose.Schema({
   status: { type: String, enum: ["PENDING", "RESOLVED"], default: "PENDING", index: true },
 }, { timestamps: true });
 
+// An item is outstanding while the pharmacy still owes the patient something:
+// QUEUED (nothing handed over) and PARTIAL (some quantity still owed) both
+// count. Treating PARTIAL as finished used to resolve the prescription early
+// and strand the remaining quantity with no way to dispense it.
 prescriptionSchema.methods.recomputeStatus = function () {
-  const stillQueued = this.items.some((i) => i.status === "QUEUED");
-  this.status = stillQueued ? "PENDING" : "RESOLVED";
+  const stillOutstanding = this.items.some((i) => i.status === "QUEUED" || i.status === "PARTIAL");
+  this.status = stillOutstanding ? "PENDING" : "RESOLVED";
   return this.status;
 };
 

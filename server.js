@@ -3,6 +3,9 @@ const connectDB = require("./config/db");
 const cors = require("cors");
 const doctorRoutes = require("./routes/doctorRoutes");
 const seedDefaultRoles = require("./utils/seedRoles");
+const migrateRolePermissions = require("./utils/migratePermissions");
+const syncAdminPermissions = require("./utils/syncAdminPermissions");
+const seedSystemSettings = require("./utils/seedSettings");
 
 
 require("dotenv").config();
@@ -14,7 +17,13 @@ const app = express();
 // middleware
 app.use(cors());
 app.use(express.json());
-connectDB().then(() => seedDefaultRoles().catch((err) => console.error("Role seeding failed:", err)));
+connectDB().then(() =>
+  seedDefaultRoles()
+    .then(() => migrateRolePermissions())
+    .then(() => syncAdminPermissions())
+    .then(() => seedSystemSettings())
+    .catch((err) => console.error("Role seeding/migration failed:", err))
+);
 
 // routes
 app.use("/api", require("./routes/authRoute"));
@@ -28,6 +37,9 @@ app.use("/api/permissions", require("./routes/permissionRoutes"));
 app.use("/api/appointments", require("./routes/appointmentRoutes"));
 app.use("/api/visit-sessions", require("./routes/visitSessionRoutes"));
 app.use("/api/prescriptions", require("./routes/prescriptionRoutes"));
+app.use("/api/consultations", require("./routes/consultationRoutes"));
+app.use("/api/external-prescriptions", require("./routes/externalPrescriptionRoutes"));
+app.use("/api/settings", require("./routes/settingsRoutes"));
 
 // test route
 app.get("/", (req, res) => {

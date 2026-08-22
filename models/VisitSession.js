@@ -26,8 +26,24 @@ const statusHistorySchema = new mongoose.Schema({
 }, { _id: false });
 
 const visitSessionSchema = new mongoose.Schema({
-  appointmentId: { type: mongoose.Schema.Types.ObjectId, ref: "Appointment", required: true, index: true },
-  patientId: { type: String, required: true, index: true },
+  // Optional because a pharmacy walk-in (a patient bringing a prescription
+  // from an outside doctor) has no appointment to hang the bill on. Every
+  // session opened by openForAppointment still sets it.
+  appointmentId: { type: mongoose.Schema.Types.ObjectId, ref: "Appointment", index: true },
+
+  // Where this bill came from. Defaults to APPOINTMENT so existing sessions
+  // and every existing code path are unaffected.
+  source: {
+    type: String,
+    enum: ["APPOINTMENT", "PHARMACY_WALK_IN"],
+    default: "APPOINTMENT",
+    index: true,
+  },
+
+  // Optional for the same reason as appointmentId: an over-the-counter sale to
+  // a guest who isn't a registered patient has no patient record to point at.
+  // Every appointment-sourced session still sets it.
+  patientId: { type: String, index: true },
   patientName: String,
   doctorId: { type: mongoose.Schema.Types.ObjectId, ref: "Doctor" },
   doctorName: String,
