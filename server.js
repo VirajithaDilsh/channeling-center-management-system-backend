@@ -1,3 +1,14 @@
+// Load env vars before anything else requires them: config/billingConfig.js
+// reads process.env at module load time, so a later dotenv call is too late.
+require("dotenv").config();
+
+for (const key of ["MONGO_URI", "JWT_SECRET"]) {
+  if (!process.env[key]) {
+    console.error(`Missing required env var: ${key} - copy .env.example to .env`);
+    process.exit(1);
+  }
+}
+
 const express = require("express");
 const connectDB = require("./config/db");
 const cors = require("cors");
@@ -7,15 +18,20 @@ const migrateRolePermissions = require("./utils/migratePermissions");
 const syncAdminPermissions = require("./utils/syncAdminPermissions");
 const seedSystemSettings = require("./utils/seedSettings");
 
-
-require("dotenv").config();
-
 const medicineRoutes = require("./routes/medicineRoutes"); // import routes
 
 const app = express();
 
 // middleware
-app.use(cors());
+// Allowed browser origins, comma-separated. Defaults to the Vite dev server so
+// local development needs no .env entry. Auth uses a Bearer token, not cookies,
+// so credentials are deliberately not enabled.
+const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 connectDB().then(() =>
   seedDefaultRoles()
