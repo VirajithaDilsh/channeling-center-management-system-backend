@@ -1,3 +1,14 @@
+// Load env vars before anything else requires them: config/billingConfig.js
+// reads process.env at module load time, so a later dotenv call is too late.
+require("dotenv").config();
+
+for (const key of ["MONGO_URI", "JWT_SECRET"]) {
+  if (!process.env[key]) {
+    console.error(`Missing required env var: ${key} - copy .env.example to .env`);
+    process.exit(1);
+  }
+}
+
 const express = require("express");
 const connectDB = require("./config/db");
 const cors = require("cors");
@@ -6,9 +17,6 @@ const seedDefaultRoles = require("./utils/seedRoles");
 const migrateRolePermissions = require("./utils/migratePermissions");
 const syncAdminPermissions = require("./utils/syncAdminPermissions");
 const seedSystemSettings = require("./utils/seedSettings");
-
-
-require("dotenv").config();
 
 const medicineRoutes = require("./routes/medicineRoutes"); // import routes
 
