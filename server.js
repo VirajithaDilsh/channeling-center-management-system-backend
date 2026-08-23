@@ -23,7 +23,15 @@ const medicineRoutes = require("./routes/medicineRoutes"); // import routes
 const app = express();
 
 // middleware
-app.use(cors());
+// Allowed browser origins, comma-separated. Defaults to the Vite dev server so
+// local development needs no .env entry. Auth uses a Bearer token, not cookies,
+// so credentials are deliberately not enabled.
+const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 connectDB().then(() =>
   seedDefaultRoles()
