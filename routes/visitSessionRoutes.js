@@ -5,7 +5,15 @@ const { verifyToken, requirePermission } = require("../middleware/authMiddleware
 
 router.use(verifyToken);
 
-router.get("/", requirePermission("pharmacy_read", "pharmacy_allow_all"), visitSessionController.listVisitSessions);
+// Readable with either pharmacy or billing permissions: it is the billing
+// ledger, and a billing-only role previously reached it only because the seeded
+// billing role happens to also carry pharmacy_allow_all — so /dashboard/billing
+// rendered but never loaded for any custom billing role.
+router.get(
+  "/",
+  requirePermission("pharmacy_read", "pharmacy_allow_all", "billing_read", "billing_allow_all"),
+  visitSessionController.listVisitSessions
+);
 router.get("/by-appointment/:appointmentId", visitSessionController.getVisitSessionByAppointment);
 router.get("/:id", visitSessionController.getVisitSession);
 

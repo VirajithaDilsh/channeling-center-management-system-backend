@@ -13,4 +13,7 @@ const appointmentSchema = new mongoose.Schema({
   visitSessionId: { type: mongoose.Schema.Types.ObjectId, ref: "VisitSession" },
 }, { timestamps: true });
 
+// getAppointments sorts on date; same unindexed in-memory sort risk as above.
+appointmentSchema.index({ date: -1 });
+
 module.exports = mongoose.model("Appointment", appointmentSchema);
