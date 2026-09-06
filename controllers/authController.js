@@ -11,7 +11,10 @@ exports.login = async (req, res) => {
     const matches = await admin.comparePassword(password);
     if (!matches) return res.status(400).json({ message: "Invalid credentials" });
 
-    const roleDoc = await Role.findOne({ name: admin.role });
+    // Case-insensitive: some accounts have a role value (e.g. "Admin") that
+    // differs in case from the actual Role document ("admin") — an exact
+    // match here would silently resolve to zero permissions.
+    const roleDoc = await Role.findOne({ name: admin.role }).collation({ locale: "en", strength: 2 });
     const permissions = roleDoc ? roleDoc.permissions : [];
 
     const token = jwt.sign(
