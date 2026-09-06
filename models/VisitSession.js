@@ -61,6 +61,10 @@ const visitSessionSchema = new mongoose.Schema({
   statusHistory: [statusHistorySchema],
 }, { timestamps: true });
 
+// listVisitSessions sorts on createdAt; without this index MongoDB does the
+// sort in memory and fails outright once the result set passes its 32 MB cap.
+visitSessionSchema.index({ createdAt: -1 });
+
 visitSessionSchema.methods.totalDue = function () {
   const total = this.lineItems.reduce((sum, li) => sum + li.amount, 0);
   const paid = this.payments.reduce((sum, p) => sum + p.amount, 0);
