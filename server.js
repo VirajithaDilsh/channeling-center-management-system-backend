@@ -26,7 +26,7 @@ const app = express();
 // Allowed browser origins, comma-separated. Defaults to the Vite dev server so
 // local development needs no .env entry. Auth uses a Bearer token, not cookies,
 // so credentials are deliberately not enabled.
-const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173")
+const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173,https://channeling-center-management-system.vercel.app")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
