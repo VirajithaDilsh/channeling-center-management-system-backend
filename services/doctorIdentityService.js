@@ -1,5 +1,6 @@
 const Admin = require("../models/Admin");
 const Doctor = require("../models/Doctor");
+const Appointment = require("../models/Appointment");
 
 // Resolves WHICH doctor the authenticated caller is, from the token only.
 //
@@ -20,4 +21,19 @@ async function resolveDoctorIdentity(req) {
   return { doctorId: doctor._id, doctorName: doctor.name };
 }
 
-module.exports = { resolveDoctorIdentity };
+// A doctor holding only `doctor_portal` (no *_allow_all/*_read module grant)
+// may only reach an appointment/patient they're actually treating. Ownership
+// is derived from Appointment.doctorId — the only server-trusted link between
+// a doctor and a patient/appointment — never from a client-supplied doctorId.
+async function doctorOwnsAppointment(doctorId, appointmentId) {
+  if (!doctorId || !appointmentId) return false;
+  const appointment = await Appointment.findById(appointmentId).select("doctorId");
+  return !!appointment && String(appointment.doctorId) === String(doctorId);
+}
+
+async function doctorHasAppointmentWithPatient(doctorId, patientId) {
+  if (!doctorId || !patientId) return false;
+  return !!(await Appointment.exists({ doctorId, patientId }));
+}
+
+module.exports = { resolveDoctorIdentity, doctorOwnsAppointment, doctorHasAppointmentWithPatient };

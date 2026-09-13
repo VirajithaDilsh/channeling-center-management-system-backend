@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 const Prescription = require("../models/Prescription");
 const VisitSession = require("../models/VisitSession");
 const Medicine = require("../models/Medicine");
-const { resolveDoctorIdentity } = require("../services/doctorIdentityService");
+const { resolveDoctorIdentity, doctorHasAppointmentWithPatient } = require("../services/doctorIdentityService");
 
 class HttpError extends Error {
   constructor(status, message) {
@@ -11,8 +11,19 @@ class HttpError extends Error {
   }
 }
 
+function hasPatientsModuleGrant(req) {
+  const perms = req.user?.permissions || [];
+  return perms.includes("patients_read") || perms.includes("patients_allow_all");
+}
+
 exports.getPrescriptionsByPatient = async (req, res) => {
   try {
+    if (!hasPatientsModuleGrant(req)) {
+      const identity = await resolveDoctorIdentity(req);
+      const owns = identity && (await doctorHasAppointmentWithPatient(identity.doctorId, req.params.patientId));
+      if (!owns) return res.status(403).json({ message: "Not authorized for this resource" });
+    }
+
     const prescriptions = await Prescription.find({ patientId: req.params.patientId }).sort({ createdAt: -1 });
     res.json(prescriptions);
   } catch (err) {
