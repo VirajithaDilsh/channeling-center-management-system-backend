@@ -24,15 +24,15 @@ const LEGACY_TO_NEW = {
   view_reports: ["reports_read"],
 };
 
-// Some previously-open routes (appointments, doctors, medicines) had no
-// permission key at all guarding them, so there's no legacy string to
-// translate for the doctor role's implicit access to them (Consultation.jsx /
-// DoctorHome.jsx call getAppointments/updateAppointment/getMedicines/
-// getDoctors directly). Union these in by role name after translation so
-// existing seeded roles end up with the same access DEFAULT_ROLE_PERMISSIONS
-// grants a fresh database.
+// inventory_read had no legacy key guarding it either (the medicine picker in
+// the prescription flow), so there's nothing in LEGACY_TO_NEW to translate it
+// from. Union it in by role name after translation so an existing seeded
+// doctor role ends up with the same baseline DEFAULT_ROLE_PERMISSIONS grants
+// a fresh database. Deliberately doesn't include appointments_allow_all/
+// doctors_read — a doctor is scoped to their own appointments/patients
+// server-side (see doctorIdentityService), not given blanket module access.
 const ROLE_SUPPLEMENTS = {
-  doctor: ["appointments_allow_all", "doctors_read", "inventory_read"],
+  doctor: ["inventory_read"],
 };
 
 async function migrateRolePermissions() {

@@ -1,5 +1,11 @@
 const Patient = require('../models/Patient');
 const ChannelingRecord = require('../models/ChannelingRecord');
+const { resolveDoctorIdentity, doctorHasAppointmentWithPatient } = require('../services/doctorIdentityService');
+
+function hasModuleGrant(req) {
+  const perms = req.user?.permissions || [];
+  return perms.includes('patients_read') || perms.includes('patients_allow_all');
+}
 
 // Get all patients, with each patient's most recent channeling visit date
 exports.getPatients = async (req, res) => {
@@ -31,6 +37,14 @@ exports.getPatients = async (req, res) => {
 // Get a single patient by ID
 exports.getPatientById = async (req, res) => {
   try {
+    // A doctor holding only doctor_portal may only open a patient they have
+    // an appointment with — not browse any patient by ID.
+    if (!hasModuleGrant(req)) {
+      const identity = await resolveDoctorIdentity(req);
+      const owns = identity && (await doctorHasAppointmentWithPatient(identity.doctorId, req.params.id));
+      if (!owns) return res.status(403).json({ message: "Not authorized for this resource" });
+    }
+
     const patient = await Patient.findOne({ patientId: req.params.id });
     if (!patient) return res.status(404).json({ message: "Patient not found" });
     res.json(patient);

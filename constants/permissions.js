@@ -38,11 +38,15 @@ const ALL_PERMISSION_KEYS = PERMISSIONS.map((p) => p.key);
 
 const DEFAULT_ROLE_PERMISSIONS = {
   admin: ALL_PERMISSION_KEYS,
-  // patients_allow_all/appointments_allow_all/doctors_read/inventory_read:
-  // Consultation.jsx and DoctorHome.jsx call getAppointments/updateAppointment/
-  // getMedicines/getDoctors directly, so the doctor role needs read access to
-  // all of those, not just the doctor_portal gate itself.
-  doctor: ["patients_allow_all", "appointments_allow_all", "doctors_read", "inventory_read", "doctor_portal"],
+  // A doctor should not browse every patient/appointment/doctor in the
+  // system — only doctor_portal is granted, which controllers scope to the
+  // caller's own appointments/patients server-side (see doctorIdentityService
+  // and getAppointments/getPatientById/getChannelingHistory/consultation
+  // reads). inventory_read stays for the prescription medicine picker
+  // (getMedicines) — that's a shared catalog, not patient data. A specific
+  // doctor can still be granted patients_read/appointments_allow_all/etc. via
+  // Role Management for broader access when actually needed.
+  doctor: ["inventory_read", "doctor_portal"],
   patient_manager: [
     "doctors_allow_all",
     "patients_allow_all",

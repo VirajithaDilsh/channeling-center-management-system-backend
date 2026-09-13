@@ -3,7 +3,7 @@ const Consultation = require("../models/Consultation");
 const Appointment = require("../models/Appointment");
 const Prescription = require("../models/Prescription");
 const VisitSession = require("../models/VisitSession");
-const { resolveDoctorIdentity } = require("../services/doctorIdentityService");
+const { resolveDoctorIdentity, doctorOwnsAppointment, doctorHasAppointmentWithPatient } = require("../services/doctorIdentityService");
 
 class HttpError extends Error {
   constructor(status, message) {
@@ -20,9 +20,22 @@ function applyClinicalFields(consultation, body) {
   });
 }
 
+function hasPatientsModuleGrant(req) {
+  const perms = req.user?.permissions || [];
+  return perms.includes("patients_read") || perms.includes("patients_allow_all");
+}
+
 // GET /api/consultations/by-appointment/:appointmentId
 exports.getConsultationByAppointment = async (req, res) => {
   try {
+    // A doctor holding only doctor_portal may only read their own appointment's
+    // consultation, not any appointment's by guessing the id.
+    if (!hasPatientsModuleGrant(req)) {
+      const identity = await resolveDoctorIdentity(req);
+      const owns = identity && (await doctorOwnsAppointment(identity.doctorId, req.params.appointmentId));
+      if (!owns) return res.status(403).json({ message: "Not authorized for this resource" });
+    }
+
     const consultation = await Consultation.findOne({ appointmentId: req.params.appointmentId });
     if (!consultation) return res.status(404).json({ message: "No consultation recorded for this appointment yet" });
     res.json(consultation);
@@ -35,6 +48,14 @@ exports.getConsultationByAppointment = async (req, res) => {
 // this patient. Distinct from the patient-desk ChannelingRecord history.
 exports.getConsultationsByPatient = async (req, res) => {
   try {
+    // Same scoping as GET /patient/:id — a doctor_portal-only caller must
+    // actually have an appointment with this patient.
+    if (!hasPatientsModuleGrant(req)) {
+      const identity = await resolveDoctorIdentity(req);
+      const owns = identity && (await doctorHasAppointmentWithPatient(identity.doctorId, req.params.patientId));
+      if (!owns) return res.status(403).json({ message: "Not authorized for this resource" });
+    }
+
     const consultations = await Consultation.find({
       patientId: req.params.patientId,
       status: "COMPLETED",
