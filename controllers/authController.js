@@ -5,7 +5,7 @@ const Role = require("../models/Role");
 exports.login = async (req, res) => {
   const { email, password } = req.body;
   try {
-    const admin = await Admin.findOne({ email });
+    const admin = await Admin.findOne({ email }).populate("doctorId", "name");
     if (!admin) return res.status(400).json({ message: "Invalid credentials" });
 
     const matches = await admin.comparePassword(password);
@@ -23,7 +23,17 @@ exports.login = async (req, res) => {
       { expiresIn: "8h" }
     );
 
-    return res.json({ message: "Login successful", token, role: admin.role, permissions });
+    // doctorId/doctorName come straight from the Admin.doctorId FK (set at account
+    // creation by doctorAccountService), not from matching email strings — this is
+    // the authoritative link the rest of the doctor-portal APIs already rely on.
+    return res.json({
+      message: "Login successful",
+      token,
+      role: admin.role,
+      permissions,
+      doctorId: admin.doctorId ? admin.doctorId._id : null,
+      doctorName: admin.doctorId ? admin.doctorId.name : null,
+    });
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }
