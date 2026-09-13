@@ -5,7 +5,10 @@ const { verifyToken, requirePermission } = require("../middleware/authMiddleware
 
 router.use(verifyToken);
 
-router.get("/patient/:patientId", prescriptionController.getPrescriptionsByPatient);
+// Previously had no permission check at all — any authenticated user could
+// pull any patient's prescriptions. doctor_portal alone is scoped to a
+// patient the caller is actually treating (see doctorIdentityService).
+router.get("/patient/:patientId", requirePermission("patients_read", "patients_allow_all", "doctor_portal"), prescriptionController.getPrescriptionsByPatient);
 router.get("/queue", requirePermission("pharmacy_read", "pharmacy_allow_all"), prescriptionController.getPharmacyQueue);
 router.post("/", requirePermission("doctor_portal"), prescriptionController.createPrescription);
 

@@ -1,6 +1,12 @@
 const Appointment = require("../models/Appointment");
 const { openForAppointment } = require("./visitSessionController");
 const SystemSettings = require("../models/SystemSettings");
+const { resolveDoctorIdentity } = require("../services/doctorIdentityService");
+
+function hasModuleGrant(req) {
+  const perms = req.user?.permissions || [];
+  return perms.includes("appointments_read") || perms.includes("appointments_allow_all");
+}
 
 // Appointment.date is stored as a Date (midnight) and .time as a separate
 // "HH:mm" string, so the actual moment of the appointment has to be combined
@@ -16,7 +22,17 @@ function combineDateAndTime(date, time) {
 
 exports.getAppointments = async (req, res) => {
   try {
-    const appointments = await Appointment.find().sort({ date: -1 });
+    let filter = {};
+
+    // A doctor holding only doctor_portal (no appointments_read/allow_all)
+    // sees just their own appointments, not the whole schedule.
+    if (!hasModuleGrant(req)) {
+      const identity = await resolveDoctorIdentity(req);
+      if (!identity) return res.status(403).json({ message: "Not authorized for this resource" });
+      filter.doctorId = identity.doctorId;
+    }
+
+    const appointments = await Appointment.find(filter).sort({ date: -1 });
     res.json(appointments);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -27,6 +43,14 @@ exports.getAppointmentById = async (req, res) => {
   try {
     const appointment = await Appointment.findById(req.params.id);
     if (!appointment) return res.status(404).json({ message: "Appointment not found" });
+
+    if (!hasModuleGrant(req)) {
+      const identity = await resolveDoctorIdentity(req);
+      if (!identity || String(appointment.doctorId) !== String(identity.doctorId)) {
+        return res.status(403).json({ message: "Not authorized for this resource" });
+      }
+    }
+
     res.json(appointment);
   } catch (err) {
     res.status(500).json({ message: err.message });
