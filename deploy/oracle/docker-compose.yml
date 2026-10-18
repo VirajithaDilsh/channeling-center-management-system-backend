@@ -1,0 +1,35 @@
+# One Oracle Cloud Always Free VM (Ampere A1, Ubuntu): Ollama + forecast service
+# behind Caddy (HTTPS + auth). Only Caddy publishes ports; Ollama and the
+# forecast service are reachable only on the internal Docker network.
+services:
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama:/root/.ollama
+    environment:
+      OLLAMA_KEEP_ALIVE: 30m   # keep the model in RAM between questions
+
+  forecast:
+    build: ../../forecast-service
+    restart: unless-stopped
+    environment:
+      FORECAST_API_KEY: ${FORECAST_API_KEY:?set FORECAST_API_KEY in .env}
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+      OLLAMA_KEY: ${OLLAMA_KEY:?set OLLAMA_KEY in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on: [ollama, forecast]
+
+volumes:
+  ollama:
+  caddy_data:

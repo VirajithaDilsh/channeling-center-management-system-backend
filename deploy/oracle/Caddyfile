@@ -1,0 +1,21 @@
+{$DOMAIN} {
+	# Ollama: only with the shared bearer key (the Node API sends OLLAMA_KEY).
+	handle /ollama/* {
+		@noauth not header Authorization "Bearer {$OLLAMA_KEY}"
+		respond @noauth "Unauthorized" 401
+		uri strip_prefix /ollama
+		reverse_proxy ollama:11434
+	}
+
+	# Forecast service enforces its own X-API-Key.
+	handle /forecast {
+		reverse_proxy forecast:8001
+	}
+	handle /health {
+		reverse_proxy forecast:8001
+	}
+
+	handle {
+		respond "Not found" 404
+	}
+}

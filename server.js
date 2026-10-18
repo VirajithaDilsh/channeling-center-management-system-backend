@@ -56,6 +56,8 @@ app.use("/api/prescriptions", require("./routes/prescriptionRoutes"));
 app.use("/api/consultations", require("./routes/consultationRoutes"));
 app.use("/api/external-prescriptions", require("./routes/externalPrescriptionRoutes"));
 app.use("/api/settings", require("./routes/settingsRoutes"));
+app.use("/api/reports", require("./routes/reportRoutes"));
+app.use("/api/assistant", require("./routes/assistantRoutes"));
 
 // test route
 app.get("/", (req, res) => {

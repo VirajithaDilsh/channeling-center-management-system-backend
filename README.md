@@ -46,6 +46,8 @@ This starts `nodemon server.js` on `http://localhost:5000` (or `PORT` if set). T
 | `PUT/DELETE` | `/api/medicines/:id` | Update / delete a medicine |
 | `GET/POST` | `/patient` | List / create patients (**note:** mounted at `/patient`, not `/api/patient` — matches the frontend's `PatientApi.js`) |
 | `GET/PUT/DELETE` | `/patient/:id` | Get / update / delete a patient |
+| `GET` | `/api/reports/summary`, `/monthly`, `/by-doctor`, `/compare`, `/forecast` | Financial analytics and revenue forecast (`reports_read`/`reports_allow_all`). See [docs/AI-FEATURES.md](docs/AI-FEATURES.md) |
+| `GET/POST` | `/api/assistant/status`, `/api/assistant/chat` | AI financial assistant, read-only, rate limited (same permission) |
 
 ## Data Models (`models/`)
 
