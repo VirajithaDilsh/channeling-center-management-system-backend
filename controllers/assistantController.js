@@ -4,7 +4,7 @@ const { TOOLS } = require("../services/assistantTools");
 const { matchIntent } = require("../services/assistantRules");
 const { buildAnswer, SUPPORTED } = require("../services/assistantAnswers");
 const llm = require("../services/assistantLlm");
-const ollama = require("../services/ollamaClient");
+const gemini = require("../services/geminiClient");
 
 const MAX_LEN = 500;
 
@@ -18,7 +18,8 @@ function safeContext(ctx) {
 }
 
 exports.status = async (req, res) => {
-  res.json({ llmConfigured: ollama.isConfigured(), llmAvailable: await ollama.available(), model: ollama.isConfigured() ? ollama.model() : null });
+  const s = await gemini.status();
+  res.json({ success: true, provider: "gemini", ...s });
 };
 
 exports.chat = async (req, res) => {
@@ -37,7 +38,7 @@ exports.chat = async (req, res) => {
     // 1. Understand: rules first (deterministic), model only for phrasings rules miss.
     let intent = matchIntent(message, context);
     let source = "rules";
-    if (!intent && ollama.isConfigured()) {
+    if (!intent && gemini.isConfigured()) {
       intent = await llm.pickTool(message, context, new Date().toISOString().slice(0, 10));
       source = "llm";
     }
@@ -54,8 +55,8 @@ exports.chat = async (req, res) => {
     // 4. Facts are always built deterministically; the model may only rephrase them.
     const { kind, text } = buildAnswer(intent.tool, data);
     let answer = text, usedLlm = false;
-    if (ollama.isConfigured()) {
-      const phrased = await llm.phrase(tool.description, text, data) // never the raw question: it could contain a patient name;
+    if (gemini.isConfigured()) {
+      const phrased = await llm.phrase(tool.description, text, data) // never the raw question: it could contain a patient name
       if (phrased) { answer = phrased; usedLlm = true; }
     }
     res.json({ kind, tool: intent.tool, params, source, usedLlm, answer, factual: text, data });
