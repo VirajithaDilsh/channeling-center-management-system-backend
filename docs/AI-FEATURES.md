@@ -42,7 +42,7 @@ Database changes: **none**. No collections, fields or indexes were added; nothin
 | Render (Node) | `FORECAST_SERVICE_KEY` | Sent as `X-API-Key`; must equal the service's `FORECAST_API_KEY` |
 | Render (Node) | `FORECAST_TIMEOUT_MS` | Default 20000 (allow longer for a free-tier cold start) |
 | Render (Node) | `GEMINI_API_KEY` | Google AI Studio key. Backend only. Unset = rule-based answers only |
-| Render (Node) | `GEMINI_MODEL` | Default `gemini-2.5-flash-lite` |
+| Render (Node) | `GEMINI_MODEL` | Default `gemini-3.5-flash-lite` |
 | Render (Node) | `GEMINI_TIMEOUT_MS` | Default 10000 |
 | Forecast service | `FORECAST_API_KEY` | Required. The service refuses to run without it (503) |
 | Forecast service | `FORECAST_ALLOW_NO_AUTH=1` | Local development only |

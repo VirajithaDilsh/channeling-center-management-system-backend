@@ -9,7 +9,7 @@ const QUOTA_COOLDOWN_MS = 60000;
 const HEALTH_TTL_MS = 5 * 60000;
 
 const isConfigured = () => !!process.env.GEMINI_API_KEY;
-const model = () => process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
+const model = () => process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
 
 let client = null;
 let clientKey = null;
