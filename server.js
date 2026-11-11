@@ -17,6 +17,7 @@ const seedDefaultRoles = require("./utils/seedRoles");
 const migrateRolePermissions = require("./utils/migratePermissions");
 const syncAdminPermissions = require("./utils/syncAdminPermissions");
 const seedSystemSettings = require("./utils/seedSettings");
+const seedIcd10 = require("./utils/seedIcd10");
 
 const medicineRoutes = require("./routes/medicineRoutes"); // import routes
 
@@ -38,6 +39,7 @@ connectDB().then(() =>
     .then(() => migrateRolePermissions())
     .then(() => syncAdminPermissions())
     .then(() => seedSystemSettings())
+    .then(() => seedIcd10())
     .catch((err) => console.error("Role seeding/migration failed:", err))
 );
 
@@ -58,6 +60,7 @@ app.use("/api/external-prescriptions", require("./routes/externalPrescriptionRou
 app.use("/api/settings", require("./routes/settingsRoutes"));
 app.use("/api/reports", require("./routes/reportRoutes"));
 app.use("/api/assistant", require("./routes/assistantRoutes"));
+app.use("/api/icd10", require("./routes/icd10Routes"));
 
 // test route
 app.get("/", (req, res) => {

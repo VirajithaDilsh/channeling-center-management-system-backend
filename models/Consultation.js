@@ -32,7 +32,15 @@ const consultationSchema = new mongoose.Schema({
   chiefComplaint: String,
   symptoms: String,
   examination: String,
+  // Free-text diagnosis notes (legacy field, still used for anything the
+  // doctor wants to say beyond a code).
   diagnosis: String,
+  // Structured ICD-10-CM diagnoses. The description is a snapshot taken from
+  // the catalog at save time so history survives a yearly catalog update.
+  diagnoses: {
+    type: [{ code: { type: String, required: true }, description: { type: String, required: true }, _id: false }],
+    default: [],
+  },
   notes: String,
 
   // Why the pharmacy was or wasn't involved. Left unset on a fresh draft and
