@@ -1,5 +1,6 @@
 const Patient = require('../models/Patient');
 const ChannelingRecord = require('../models/ChannelingRecord');
+const Appointment = require('../models/Appointment');
 const { resolveDoctorIdentity, doctorHasAppointmentWithPatient } = require('../services/doctorIdentityService');
 
 function hasModuleGrant(req) {
@@ -10,7 +11,18 @@ function hasModuleGrant(req) {
 // Get all patients, with each patient's most recent channeling visit date
 exports.getPatients = async (req, res) => {
   try {
+    // A doctor holding only doctor_portal sees just the patients they have an
+    // appointment with, never the whole clinic's list.
+    const pipelineScope = [];
+    if (!hasModuleGrant(req)) {
+      const identity = await resolveDoctorIdentity(req);
+      if (!identity) return res.status(403).json({ message: 'Not authorized for this resource' });
+      const patientIds = await Appointment.distinct('patientId', { doctorId: identity.doctorId });
+      pipelineScope.push({ $match: { patientId: { $in: patientIds } } });
+    }
+
     const patients = await Patient.aggregate([
+      ...pipelineScope,
       { $sort: { createdAt: -1 } },
       {
         $lookup: {

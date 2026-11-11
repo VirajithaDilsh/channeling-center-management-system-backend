@@ -3,6 +3,7 @@ const Consultation = require("../models/Consultation");
 const Appointment = require("../models/Appointment");
 const Prescription = require("../models/Prescription");
 const VisitSession = require("../models/VisitSession");
+const Icd10Code = require("../models/Icd10Code");
 const { resolveDoctorIdentity, doctorOwnsAppointment, doctorHasAppointmentWithPatient } = require("../services/doctorIdentityService");
 
 class HttpError extends Error {
@@ -18,6 +19,25 @@ function applyClinicalFields(consultation, body) {
   CLINICAL_FIELDS.forEach((field) => {
     if (body[field] !== undefined) consultation[field] = body[field];
   });
+}
+
+// Validates submitted ICD-10 diagnoses against the catalog and stores them with
+// the catalog's own description (never the client's). Omitted -> left as is.
+async function applyDiagnoses(consultation, body) {
+  if (body.diagnoses === undefined) return;
+  if (!Array.isArray(body.diagnoses)) throw new HttpError(400, "diagnoses must be a list of ICD-10 codes");
+
+  const codes = [...new Set(
+    body.diagnoses.map((d) => String(d?.code || "").trim().toUpperCase()).filter(Boolean)
+  )];
+
+  const found = await Icd10Code.find({ code: { $in: codes }, active: true }).select("code description").lean();
+  const byCode = new Map(found.map((c) => [c.code, c.description]));
+
+  const unknown = codes.filter((c) => !byCode.has(c));
+  if (unknown.length) throw new HttpError(400, `Unknown ICD-10 code(s): ${unknown.join(", ")}`);
+
+  consultation.diagnoses = codes.map((code) => ({ code, description: byCode.get(code) }));
 }
 
 function hasPatientsModuleGrant(req) {
@@ -123,6 +143,7 @@ exports.saveConsultationDraft = async (req, res) => {
     consultation.doctorName = identity.doctorName;
 
     applyClinicalFields(consultation, req.body);
+    await applyDiagnoses(consultation, req.body);
 
     if (req.body.prescriptionMode !== undefined) {
       if (!Consultation.PRESCRIPTION_MODES.includes(req.body.prescriptionMode)) {
@@ -198,6 +219,7 @@ exports.completeConsultation = async (req, res) => {
       consultation.doctorId = identity.doctorId;
       consultation.doctorName = identity.doctorName;
       applyClinicalFields(consultation, req.body);
+      await applyDiagnoses(consultation, req.body);
 
       const mode = req.body.prescriptionMode ?? consultation.prescriptionMode;
       if (!Consultation.PRESCRIPTION_MODES.includes(mode)) {
