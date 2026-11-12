@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "description": "",
   "main": "server.js",
+  "author": "ClinicConnect",
+  "license": "MIT",
   "scripts": {
     "start": "node server.js",
     "dev": "cross-env NODE_OPTIONS=--dns-result-order=ipv4first nodemon server.js"
@@ -12,8 +14,6 @@
     "url": "git+https://github.com/VirajithaDilsh/channeling-center-management-system-backend.git"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
   "type": "commonjs",
   "engines": {
     "node": ">=22"
