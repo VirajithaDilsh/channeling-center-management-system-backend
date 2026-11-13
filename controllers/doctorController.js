@@ -12,9 +12,13 @@ async function resolveOwnDoctorId(req) {
   return admin?.doctorId || null;
 }
 
-// Only these fields are self-editable; specialization/fee/status/email stay
+// Only these fields are self-editable; specialization/fee/email stay
 // admin-managed since they're business-critical (pricing, login matching).
-const SELF_EDITABLE_DOCTOR_FIELDS = ["phone", "experience"];
+// Status (Available/Busy/On Leave) is a day-to-day availability toggle, so
+// doctors can set it themselves.
+const SELF_EDITABLE_DOCTOR_FIELDS = ["phone", "experience", "status"];
+
+const SELF_EDITABLE_STATUS_VALUES = ["Available", "Busy", "On Leave"];
 
 exports.createDoctor = async (req, res) => {
   try {
@@ -133,6 +137,10 @@ exports.updateMyProfile = async (req, res) => {
   try {
     const doctorId = await resolveOwnDoctorId(req);
     if (!doctorId) return res.status(404).json({ message: "No linked doctor profile found" });
+
+    if (req.body.status !== undefined && !SELF_EDITABLE_STATUS_VALUES.includes(req.body.status)) {
+      return res.status(400).json({ message: `Status must be one of: ${SELF_EDITABLE_STATUS_VALUES.join(", ")}` });
+    }
 
     const updates = {};
     SELF_EDITABLE_DOCTOR_FIELDS.forEach((field) => {
