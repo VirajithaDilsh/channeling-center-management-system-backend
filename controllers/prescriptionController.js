@@ -77,6 +77,10 @@ exports.createPrescription = async (req, res) => {
       const prescriptionItems = items.map((i) => {
         const medicine = medicineById.get(String(i.medicineId));
         if (!medicine) throw new HttpError(400, `Unknown medicine: ${i.medicineId}`);
+        const qty = Number(i.qtyPrescribed);
+        if (!Number.isInteger(qty) || qty < 1) {
+          throw new HttpError(400, `Quantity for ${medicine.name} must be a whole number of at least 1`);
+        }
         return {
           medicineId: medicine._id,
           name: medicine.name,
@@ -84,7 +88,7 @@ exports.createPrescription = async (req, res) => {
           frequency: i.frequency,
           duration: i.duration,
           instructions: i.instructions,
-          qtyPrescribed: i.qtyPrescribed || 1,
+          qtyPrescribed: qty,
           unitPrice: medicine.unitPrice || 0,
           status: "QUEUED",
         };

@@ -56,11 +56,13 @@ app.use("/api/appointments", require("./routes/appointmentRoutes"));
 app.use("/api/visit-sessions", require("./routes/visitSessionRoutes"));
 app.use("/api/prescriptions", require("./routes/prescriptionRoutes"));
 app.use("/api/consultations", require("./routes/consultationRoutes"));
+app.use("/api/prescription-templates", require("./routes/prescriptionTemplateRoutes"));
 app.use("/api/external-prescriptions", require("./routes/externalPrescriptionRoutes"));
 app.use("/api/settings", require("./routes/settingsRoutes"));
 app.use("/api/reports", require("./routes/reportRoutes"));
 app.use("/api/assistant", require("./routes/assistantRoutes"));
 app.use("/api/icd10", require("./routes/icd10Routes"));
+app.use("/api/contact", require("./routes/contactRoutes"));
 
 // test route
 app.get("/", (req, res) => {

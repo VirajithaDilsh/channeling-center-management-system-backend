@@ -221,6 +221,13 @@ exports.completeConsultation = async (req, res) => {
       applyClinicalFields(consultation, req.body);
       await applyDiagnoses(consultation, req.body);
 
+      if (!consultation.chiefComplaint?.trim()) {
+        throw new HttpError(400, "Chief complaint is required before completing the consultation");
+      }
+      if (!consultation.diagnosis?.trim() && (consultation.diagnoses || []).length === 0) {
+        throw new HttpError(400, "At least one diagnosis is required before completing the consultation");
+      }
+
       const mode = req.body.prescriptionMode ?? consultation.prescriptionMode;
       if (!Consultation.PRESCRIPTION_MODES.includes(mode)) {
         throw new HttpError(400, "Choose how the prescription is being handled before completing the consultation");
