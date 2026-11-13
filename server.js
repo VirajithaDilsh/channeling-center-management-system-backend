@@ -61,6 +61,7 @@ app.use("/api/settings", require("./routes/settingsRoutes"));
 app.use("/api/reports", require("./routes/reportRoutes"));
 app.use("/api/assistant", require("./routes/assistantRoutes"));
 app.use("/api/icd10", require("./routes/icd10Routes"));
+app.use("/api/contact", require("./routes/contactRoutes"));
 
 // test route
 app.get("/", (req, res) => {
