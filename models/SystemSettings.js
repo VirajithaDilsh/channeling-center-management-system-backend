@@ -29,6 +29,12 @@ const systemSettingsSchema = new mongoose.Schema(
     doctorDefaults: {
       defaultConsultationDurationMinutes: { type: Number, default: 15, min: 5 },
     },
+    inventoryNotifications: {
+      enabled: { type: Boolean, default: true },
+      thresholdDays: { type: Number, default: 30, min: 1, max: 365 },
+      showLoginPopup: { type: Boolean, default: true },
+      soundEnabled: { type: Boolean, default: false },
+    },
     updatedBy: { type: String },
   },
   { timestamps: true }

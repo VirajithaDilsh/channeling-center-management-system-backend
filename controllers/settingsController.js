@@ -1,4 +1,5 @@
 const SystemSettings = require("../models/SystemSettings");
+const { isAdminRole } = require("../middleware/authMiddleware");
 
 const PAYMENT_METHODS = ["cash", "card", "insurance"];
 
@@ -30,7 +31,7 @@ exports.getSettings = async (req, res) => {
 };
 
 function validateSection(body) {
-  const { general, appointments, payments, doctorDefaults } = body;
+  const { general, appointments, payments, doctorDefaults, inventoryNotifications } = body;
 
   if (appointments) {
     const { defaultDurationMinutes, maxAdvanceBookingDays, cancellationWindowHours } = appointments;
@@ -74,21 +75,45 @@ function validateSection(body) {
     return "General contact email is invalid";
   }
 
+  if (inventoryNotifications) {
+    const { enabled, thresholdDays, showLoginPopup, soundEnabled } = inventoryNotifications;
+    if (enabled !== undefined && typeof enabled !== "boolean") {
+      return "Notification enabled flag must be a boolean";
+    }
+    if (showLoginPopup !== undefined && typeof showLoginPopup !== "boolean") {
+      return "Show login popup flag must be a boolean";
+    }
+    if (soundEnabled !== undefined && typeof soundEnabled !== "boolean") {
+      return "Sound enabled flag must be a boolean";
+    }
+    if (thresholdDays !== undefined) {
+      const days = Number(thresholdDays);
+      if (!Number.isInteger(days) || days < 1 || days > 365) {
+        return "Expiry warning threshold must be a whole number between 1 and 365 days";
+      }
+    }
+  }
+
   return null;
 }
 
 exports.updateSettings = async (req, res) => {
   try {
+    if (req.body.inventoryNotifications !== undefined && !isAdminRole(req.user?.role)) {
+      return res.status(403).json({ message: "Only administrators can update inventory notification preferences" });
+    }
+
     const error = validateSection(req.body);
     if (error) return res.status(400).json({ message: error });
 
     const s = await SystemSettings.getSingleton();
-    const { general, appointments, payments, doctorDefaults } = req.body;
+    const { general, appointments, payments, doctorDefaults, inventoryNotifications } = req.body;
 
     if (general) Object.assign(s.general, general);
     if (appointments) Object.assign(s.appointments, appointments);
     if (payments) Object.assign(s.payments, payments);
     if (doctorDefaults) Object.assign(s.doctorDefaults, doctorDefaults);
+    if (inventoryNotifications) Object.assign(s.inventoryNotifications, inventoryNotifications);
     s.updatedBy = req.user?.name;
 
     await s.save();

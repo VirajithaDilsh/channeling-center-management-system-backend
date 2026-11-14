@@ -27,3 +27,12 @@ exports.requirePermission = (...allowedPermissions) => (req, res, next) => {
   }
   next();
 };
+
+exports.isAdminRole = (role) => String(role || "").trim().toLowerCase() === "admin";
+
+exports.requireAdmin = (req, res, next) => {
+  if (!req.user || !exports.isAdminRole(req.user.role)) {
+    return res.status(403).json({ message: "Administrator access required" });
+  }
+  next();
+};
