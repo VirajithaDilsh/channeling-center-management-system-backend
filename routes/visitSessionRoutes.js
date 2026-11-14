@@ -14,8 +14,16 @@ router.get(
   requirePermission("pharmacy_read", "pharmacy_allow_all", "billing_read", "billing_allow_all"),
   visitSessionController.listVisitSessions
 );
-router.get("/by-appointment/:appointmentId", visitSessionController.getVisitSessionByAppointment);
-router.get("/:id", visitSessionController.getVisitSession);
+router.get(
+  "/by-appointment/:appointmentId",
+  requirePermission("pharmacy_read", "pharmacy_allow_all", "billing_read", "billing_allow_all", "doctor_portal"),
+  visitSessionController.getVisitSessionByAppointment
+);
+router.get(
+  "/:id",
+  requirePermission("pharmacy_read", "pharmacy_allow_all", "billing_read", "billing_allow_all", "doctor_portal"),
+  visitSessionController.getVisitSession
+);
 
 router.patch("/:id/finalize-consultation", requirePermission("doctor_portal"), visitSessionController.finalizeConsultation);
 router.post("/:id/payments", requirePermission("billing_write", "billing_allow_all"), visitSessionController.addPayment);

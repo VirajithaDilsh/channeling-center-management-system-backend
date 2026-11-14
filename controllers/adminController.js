@@ -92,7 +92,7 @@ exports.getAdmins = async (req, res) => {
 
   try {
 
-    const admins = await Admin.find();
+    const admins = await Admin.find().select("-password");
 
     res.json(admins);
 
@@ -109,7 +109,7 @@ exports.getAdminById = async (req, res) => {
 
   try {
 
-    const admin = await Admin.findById(req.params.id);
+    const admin = await Admin.findById(req.params.id).select("-password");
 
     if (!admin) return res.status(404).json({ message: "Admin not found" });
 
@@ -128,11 +128,16 @@ exports.updateAdmin = async (req, res) => {
 
   try {
 
+    // A blank password means "unchanged" (the edit form sends "" when the
+    // field is left empty); never overwrite the stored hash with it.
+    const update = { ...req.body };
+    if (!update.password) delete update.password;
+
     const admin = await Admin.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      update,
       { new: true }
-    );
+    ).select("-password");
 
     if (!admin) return res.status(404).json({ message: "Admin not found" });
 
