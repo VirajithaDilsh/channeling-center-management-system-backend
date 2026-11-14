@@ -41,6 +41,7 @@ Database changes: **none**. No collections, fields or indexes were added; nothin
 | Render (Node) | `FORECAST_SERVICE_URL` | Base URL of the forecast service. Unset = forecast returns 503 |
 | Render (Node) | `FORECAST_SERVICE_KEY` | Sent as `X-API-Key`; must equal the service's `FORECAST_API_KEY` |
 | Render (Node) | `FORECAST_TIMEOUT_MS` | Default 20000 (allow longer for a free-tier cold start) |
+| Render (Node) | `FORECAST_WAKE_MS` | Default 60000. Total time to keep retrying 502/503/504 while a sleeping service wakes |
 | Render (Node) | `GEMINI_API_KEY` | Google AI Studio key. Backend only. Unset = rule-based answers only |
 | Render (Node) | `GEMINI_MODEL` | Default `gemini-3.5-flash-lite` |
 | Render (Node) | `GEMINI_TIMEOUT_MS` | Default 10000 |
