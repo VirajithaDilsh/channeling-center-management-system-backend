@@ -2,6 +2,7 @@ const { test } = require("node:test");
 const assert = require("node:assert");
 
 const {
+  getConfiguredHistoryDays,
   buildColomboWindowDates,
   aggregateDailyConsumption,
 } = require("../services/stockoutService");
@@ -10,14 +11,27 @@ const stockoutService = require("../services/stockoutService");
 const { ForecastUnavailable } = require("../services/forecastClient");
 const medicineRoutes = require("../routes/medicineRoutes");
 
-test("buildColomboWindowDates excludes today and uses Asia/Colombo calendar dates", () => {
+test("buildColomboWindowDates excludes today and defaults to 90 Asia/Colombo calendar days", () => {
   // 2026-11-14 01:00+05:30 = 2026-11-13T19:30:00.000Z
   const now = new Date("2026-11-13T19:30:00.000Z");
-  const { asOfDate, dates } = buildColomboWindowDates(30, now);
+  const { asOfDate, dates } = buildColomboWindowDates(undefined, now);
+  assert.strictEqual(getConfiguredHistoryDays(), 90);
   assert.strictEqual(asOfDate, "2026-11-14");
-  assert.strictEqual(dates.length, 30);
-  assert.strictEqual(dates[0], "2026-10-15");
-  assert.strictEqual(dates[29], "2026-11-13");
+  assert.strictEqual(dates.length, 90);
+  assert.strictEqual(dates[89], "2026-11-13");
+});
+
+test("STOCKOUT_HISTORY_DAYS configures history window and falls back to 90 on invalid input", () => {
+  const prev = process.env.STOCKOUT_HISTORY_DAYS;
+  try {
+    process.env.STOCKOUT_HISTORY_DAYS = "60";
+    assert.strictEqual(getConfiguredHistoryDays(), 60);
+    process.env.STOCKOUT_HISTORY_DAYS = "invalid";
+    assert.strictEqual(getConfiguredHistoryDays(), 90);
+  } finally {
+    if (prev === undefined) delete process.env.STOCKOUT_HISTORY_DAYS;
+    else process.env.STOCKOUT_HISTORY_DAYS = prev;
+  }
 });
 
 test("aggregates internal (including partial), external, avoids double counting, and separates batches", () => {

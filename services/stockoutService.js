@@ -11,14 +11,22 @@ const {
 } = require("./expiryAlertService");
 
 const MS_PER_DAY = 86400000;
-const DEFAULT_WINDOW_DAYS = 30;
+const DEFAULT_HISTORY_DAYS = 90;
 const DEFAULT_HORIZON_DAYS = 30;
+
+function getConfiguredHistoryDays() {
+  const parsed = Number(process.env.STOCKOUT_HISTORY_DAYS);
+  if (Number.isInteger(parsed) && parsed >= 7 && parsed <= 365) {
+    return parsed;
+  }
+  return DEFAULT_HISTORY_DAYS;
+}
 
 /**
  * Builds the ordered list of complete Asia/Colombo calendar dates (YYYY-MM-DD)
  * for the trailing `windowDays` window, excluding today's incomplete day.
  */
-function buildColomboWindowDates(windowDays = DEFAULT_WINDOW_DAYS, now = new Date()) {
+function buildColomboWindowDates(windowDays = getConfiguredHistoryDays(), now = new Date()) {
   const todayStartUtc = getColomboTodayStartUtc(now);
   const windowStartUtc = new Date(todayStartUtc.getTime() - windowDays * MS_PER_DAY);
   const asOfDate = formatColomboYmd(todayStartUtc);
@@ -50,7 +58,7 @@ function aggregateDailyConsumption({
   externalRecords = [],
   internalLineItems = [],
   prescriptionItemMap = new Map(),
-  windowDays = DEFAULT_WINDOW_DAYS,
+  windowDays = getConfiguredHistoryDays(),
   now = new Date(),
 }) {
   const { asOfDate, todayStartUtc, windowStartUtc, dates } = buildColomboWindowDates(windowDays, now);
@@ -116,7 +124,7 @@ function aggregateDailyConsumption({
 
 async function getStockoutPredictions({
   horizonDays = DEFAULT_HORIZON_DAYS,
-  windowDays = DEFAULT_WINDOW_DAYS,
+  windowDays = getConfiguredHistoryDays(),
   now = new Date(),
 } = {}) {
   const { asOfDate, todayStartUtc, windowStartUtc } = buildColomboWindowDates(windowDays, now);
@@ -131,7 +139,7 @@ async function getStockoutPredictions({
       asOfDate,
       horizonDays,
       windowDays,
-      modelUsed: "moving_average_30d",
+      modelUsed: "moving_average",
       methodType: "statistical_moving_average",
       predictions: [],
     };
@@ -222,13 +230,14 @@ async function getStockoutPredictions({
     asOfDate: forecastResponse.asOfDate || asOfDate,
     horizonDays: forecastResponse.horizonDays || horizonDays,
     windowDays: forecastResponse.windowDays || windowDays,
-    modelUsed: forecastResponse.modelUsed || "moving_average_30d",
+    modelUsed: forecastResponse.modelUsed || "moving_average",
     methodType: forecastResponse.methodType || "statistical_moving_average",
     predictions,
   };
 }
 
 module.exports = {
+  getConfiguredHistoryDays,
   buildColomboWindowDates,
   aggregateDailyConsumption,
   getStockoutPredictions,

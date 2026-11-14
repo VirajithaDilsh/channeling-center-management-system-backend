@@ -66,7 +66,7 @@ class StockoutMedicineInput(BaseModel):
 
 class StockoutRequest(BaseModel):
     horizonDays: int = Field(default=30, ge=1, le=90)
-    windowDays: int = Field(default=30, ge=7, le=90)
+    windowDays: int = Field(default=90, ge=7, le=365)
     asOfDate: Optional[str] = Field(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$")
     medicines: list[StockoutMedicineInput] = Field(default_factory=list, max_length=5000)
 

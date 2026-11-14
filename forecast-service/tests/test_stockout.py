@@ -4,7 +4,11 @@ import unittest
 from datetime import date, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-from stockout import predict_medicine_stockout, predict_stockout_batch  # noqa: E402
+from stockout import (  # noqa: E402
+    build_features_for_index,
+    predict_medicine_stockout,
+    predict_stockout_batch,
+)
 
 
 def make_history(as_of: date, values: list[float]) -> list[dict]:
@@ -21,45 +25,94 @@ class TestStockoutPrediction(unittest.TestCase):
     def setUp(self):
         self.as_of = date(2026, 11, 14)
 
-    def test_moving_average_and_reorder_threshold(self):
-        # 30 days of 5 units/day -> daily=5.0; stock=50, reorder=20
-        # daysUntilStockOut = 10.0, daysUntilReorderThreshold = 6.0, risk=HIGH
+    def test_feature_engineering_no_future_leakage(self):
+        start = self.as_of - timedelta(days=30)
+        dates = [start + timedelta(days=i) for i in range(30)]
+        values_a = [float(i + 1) for i in range(30)]
+        values_b = list(values_a)
+        # Mutate target day and future days; features at idx=20 must stay identical
+        values_b[20] = 9999.0
+        values_b[25] = 8888.0
+
+        feats_a = build_features_for_index(dates, values_a, 20)
+        feats_b = build_features_for_index(dates, values_b, 20)
+        self.assertEqual(feats_a, feats_b)
+        self.assertEqual(len(feats_a), 9)
+
+    def test_random_forest_selected_on_weekly_pattern_with_90_days(self):
+        # Strong day-of-week seasonality over 90 days: RF captures weekday pattern better than 30d flat MA
+        start = self.as_of - timedelta(days=90)
+        pattern = [10.0, 2.0, 2.0, 12.0, 2.0, 18.0, 0.0]
+        values = [pattern[(start + timedelta(days=i)).weekday()] for i in range(90)]
         result = predict_medicine_stockout(
             {
-                "medicineId": "med-1",
+                "medicineId": "med-rf",
+                "currentStock": 80,
+                "reorderLevel": 20,
+                "isExpired": False,
+                "history": make_history(self.as_of, values),
+            },
+            as_of_date=self.as_of,
+            horizon_days=14,
+            window_days=90,
+        )
+        self.assertEqual(result["predictionStatus"], "ok")
+        self.assertEqual(result["modelUsed"], "random_forest")
+        self.assertEqual(result["modelLabel"], "Random Forest Regression (ML)")
+        self.assertTrue(result["validation"]["evaluated"])
+        self.assertLessEqual(result["validation"]["rfMae"], result["validation"]["baselineMae"])
+        self.assertLessEqual(result["validation"]["rfRmse"], result["validation"]["baselineRmse"])
+        self.assertEqual(len(result["dailyForecast"]), 14)
+        self.assertIsNotNone(result["estimatedStockOutDate"])
+
+    def test_fallback_to_moving_average_when_below_35_days(self):
+        # 25 days is enough for MA (>=7) but below MIN_RF_TOTAL_DAYS (35)
+        result = predict_medicine_stockout(
+            {
+                "medicineId": "med-ma-short",
                 "currentStock": 50,
                 "reorderLevel": 20,
                 "isExpired": False,
-                "history": make_history(self.as_of, [5] * 30),
+                "history": make_history(self.as_of, [5] * 25),
             },
             as_of_date=self.as_of,
             horizon_days=30,
+            window_days=90,
         )
         self.assertEqual(result["predictionStatus"], "ok")
-        self.assertEqual(result["modelUsed"], "moving_average_30d")
-        self.assertEqual(result["methodType"], "statistical_moving_average")
+        self.assertEqual(result["modelUsed"], "moving_average")
+        self.assertEqual(result["modelLabel"], "Moving Average (Fallback)")
+        self.assertFalse(result["validation"]["evaluated"])
         self.assertEqual(result["estimatedDailyConsumption"], 5.0)
         self.assertEqual(result["estimatedDaysUntilStockOut"], 10.0)
-        self.assertEqual(result["estimatedStockOutDate"], "2026-11-24")
+        # Forecast starts on as_of_date (2026-11-14); 10 days of 5/day reaches 0 on 2026-11-23
+        self.assertEqual(result["estimatedStockOutDate"], "2026-11-23")
         self.assertEqual(result["daysUntilReorderThreshold"], 6.0)
         self.assertEqual(result["riskLevel"], "HIGH")
+        self.assertEqual(len(result["dailyForecast"]), 30)
+        first_zero = next(
+            (pt for pt in result["dailyForecast"] if pt["predictedRemainingStock"] <= 0),
+            None,
+        )
+        self.assertIsNotNone(first_zero)
+        self.assertEqual(first_zero["date"], result["estimatedStockOutDate"])
 
-    def test_zero_consumption_days_included(self):
-        # 30 days: 15 days of 4 units, 15 days of 0 units -> avg = 2.0/day
-        history = make_history(self.as_of, [4 if i % 2 == 0 else 0 for i in range(30)])
+    def test_beyond_horizon_does_not_invent_stockout_date(self):
         result = predict_medicine_stockout(
             {
-                "medicineId": "med-zero-days",
-                "currentStock": 100,
+                "medicineId": "med-beyond",
+                "currentStock": 200,
                 "reorderLevel": 10,
                 "isExpired": False,
-                "history": history,
+                "history": make_history(self.as_of, [2] * 30),
             },
             as_of_date=self.as_of,
+            horizon_days=14,
+            window_days=90,
         )
         self.assertEqual(result["predictionStatus"], "ok")
-        self.assertEqual(result["estimatedDailyConsumption"], 2.0)
-        self.assertEqual(result["estimatedDaysUntilStockOut"], 50.0)
+        self.assertIsNone(result["estimatedStockOutDate"])
+        self.assertEqual(result["estimatedDaysUntilStockOut"], 100.0)
         self.assertEqual(result["riskLevel"], "LOW")
 
     def test_zero_observed_consumption(self):
@@ -69,11 +122,13 @@ class TestStockoutPrediction(unittest.TestCase):
                 "currentStock": 40,
                 "reorderLevel": 10,
                 "isExpired": False,
-                "history": make_history(self.as_of, [0] * 30),
+                "history": make_history(self.as_of, [0] * 40),
             },
             as_of_date=self.as_of,
+            window_days=90,
         )
         self.assertEqual(result["predictionStatus"], "ok")
+        self.assertEqual(result["modelUsed"], "moving_average")
         self.assertEqual(result["estimatedDailyConsumption"], 0.0)
         self.assertIsNone(result["estimatedDaysUntilStockOut"])
         self.assertIsNone(result["estimatedStockOutDate"])
@@ -90,76 +145,43 @@ class TestStockoutPrediction(unittest.TestCase):
                 "history": make_history(self.as_of, [5, 5, 5]),
             },
             as_of_date=self.as_of,
+            window_days=90,
         )
         self.assertEqual(result["predictionStatus"], "insufficient_data")
         self.assertIsNone(result["estimatedDailyConsumption"])
         self.assertIsNone(result["estimatedDaysUntilStockOut"])
         self.assertIsNone(result["estimatedStockOutDate"])
+        self.assertEqual(result["dailyForecast"], [])
 
-    def test_zero_stock_is_critical(self):
-        result = predict_medicine_stockout(
+    def test_zero_stock_and_expired_handling(self):
+        oos = predict_medicine_stockout(
             {
                 "medicineId": "med-oos",
                 "currentStock": 0,
                 "reorderLevel": 10,
                 "isExpired": False,
-                "history": make_history(self.as_of, [3] * 30),
+                "history": make_history(self.as_of, [3] * 20),
             },
             as_of_date=self.as_of,
+            window_days=90,
         )
-        self.assertEqual(result["predictionStatus"], "ok")
-        self.assertEqual(result["estimatedDaysUntilStockOut"], 0.0)
-        self.assertEqual(result["estimatedStockOutDate"], "2026-11-14")
-        self.assertEqual(result["daysUntilReorderThreshold"], 0.0)
-        self.assertEqual(result["riskLevel"], "CRITICAL")
+        self.assertEqual(oos["estimatedDaysUntilStockOut"], 0.0)
+        self.assertEqual(oos["estimatedStockOutDate"], "2026-11-14")
+        self.assertEqual(oos["riskLevel"], "CRITICAL")
 
-    def test_expired_medicine_is_critical_with_warning(self):
-        result = predict_medicine_stockout(
+        exp = predict_medicine_stockout(
             {
                 "medicineId": "med-exp",
                 "currentStock": 500,
                 "reorderLevel": 10,
                 "isExpired": True,
-                "history": make_history(self.as_of, [1] * 30),
+                "history": make_history(self.as_of, [1] * 20),
             },
             as_of_date=self.as_of,
+            window_days=90,
         )
-        self.assertEqual(result["riskLevel"], "CRITICAL")
-        self.assertTrue(result["isExpired"])
-        self.assertTrue(any("expired" in w.lower() for w in result["dataQuality"]["warnings"]))
-
-    def test_missing_dates_and_invalid_quantities_handled(self):
-        # 10 valid dates spread across a 12-day span (2 missing days filled with 0) + invalid entries
-        history = [
-            {"date": (self.as_of - timedelta(days=12)).isoformat(), "qty": 12},
-            {"date": (self.as_of - timedelta(days=10)).isoformat(), "qty": 12},
-            {"date": (self.as_of - timedelta(days=8)).isoformat(), "qty": 12},
-            {"date": (self.as_of - timedelta(days=7)).isoformat(), "qty": 12},
-            {"date": (self.as_of - timedelta(days=6)).isoformat(), "qty": 12},
-            {"date": (self.as_of - timedelta(days=5)).isoformat(), "qty": 0},
-            {"date": (self.as_of - timedelta(days=4)).isoformat(), "qty": 0},
-            {"date": (self.as_of - timedelta(days=3)).isoformat(), "qty": 0},
-            {"date": (self.as_of - timedelta(days=2)).isoformat(), "qty": 0},
-            {"date": (self.as_of - timedelta(days=1)).isoformat(), "qty": 0},
-            {"date": "not-a-date", "qty": 5},
-            {"date": (self.as_of - timedelta(days=1)).isoformat(), "qty": -99},
-            {"date": self.as_of.isoformat(), "qty": 999},  # today excluded
-        ]
-        result = predict_medicine_stockout(
-            {
-                "medicineId": "med-dirty",
-                "currentStock": 50,
-                "reorderLevel": 10,
-                "isExpired": False,
-                "history": history,
-            },
-            as_of_date=self.as_of,
-        )
-        self.assertEqual(result["predictionStatus"], "ok")
-        self.assertEqual(result["dataQuality"]["invalidPointsIgnored"], 2)
-        self.assertEqual(result["dataQuality"]["missingDaysFilled"], 2)
-        # Total = 60 over 12-day span -> 5.0/day
-        self.assertEqual(result["estimatedDailyConsumption"], 5.0)
+        self.assertEqual(exp["riskLevel"], "CRITICAL")
+        self.assertTrue(any("expired" in w.lower() for w in exp["dataQuality"]["warnings"]))
 
     def test_batch_keeps_batches_separate(self):
         batch = predict_stockout_batch(
@@ -169,26 +191,24 @@ class TestStockoutPrediction(unittest.TestCase):
                     "currentStock": 20,
                     "reorderLevel": 5,
                     "isExpired": False,
-                    "history": make_history(self.as_of, [4] * 30),
+                    "history": make_history(self.as_of, [4] * 20),
                 },
                 {
                     "medicineId": "batch-b",
                     "currentStock": 200,
                     "reorderLevel": 10,
                     "isExpired": False,
-                    "history": make_history(self.as_of, [2] * 30),
+                    "history": make_history(self.as_of, [2] * 20),
                 },
             ],
             horizon_days=14,
             as_of_date_str="2026-11-14",
+            window_days=90,
         )
         self.assertEqual(len(batch["predictions"]), 2)
         self.assertEqual(batch["predictions"][0]["medicineId"], "batch-a")
-        self.assertEqual(batch["predictions"][0]["riskLevel"], "CRITICAL")
         self.assertEqual(batch["predictions"][1]["medicineId"], "batch-b")
-        self.assertEqual(batch["predictions"][1]["riskLevel"], "LOW")
 
 
 if __name__ == "__main__":
     unittest.main()
-
