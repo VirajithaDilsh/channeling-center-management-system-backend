@@ -103,16 +103,21 @@ async function seedMedicines() {
 }
 
 async function seedSchedules(doctors) {
+  // Weekly recurring windows (dayOfWeek 0 = Sunday). maxPatients omitted = unlimited.
   const entries = [
-    { doctorId: doctors.silva._id, date: TODAY, startTime: "09:00", endTime: "13:00", maxPatients: 15 },
-    { doctorId: doctors.perera._id, date: TODAY, startTime: "14:00", endTime: "17:00", maxPatients: 10 },
-    { doctorId: doctors.fernando._id, date: TODAY, startTime: "09:00", endTime: "12:00", maxPatients: 12 },
-    { doctorId: doctors.jayawardena._id, date: TODAY, startTime: "10:00", endTime: "14:00", maxPatients: 10 },
+    { doctorId: doctors.silva._id, dayOfWeek: 1, startTime: "09:00", endTime: "13:00", maxPatients: 15 },
+    { doctorId: doctors.silva._id, dayOfWeek: 3, startTime: "09:00", endTime: "13:00", maxPatients: 15 },
+    { doctorId: doctors.perera._id, dayOfWeek: 2, startTime: "14:00", endTime: "17:00", maxPatients: 10 },
+    { doctorId: doctors.perera._id, dayOfWeek: 4, startTime: "14:00", endTime: "17:00" },
+    { doctorId: doctors.fernando._id, dayOfWeek: 1, startTime: "09:00", endTime: "12:00", maxPatients: 12 },
+    { doctorId: doctors.fernando._id, dayOfWeek: 5, startTime: "09:00", endTime: "12:00", maxPatients: 12 },
+    { doctorId: doctors.jayawardena._id, dayOfWeek: 6, startTime: "10:00", endTime: "14:00", maxPatients: 10 },
+    { doctorId: doctors.jayawardena._id, dayOfWeek: 0, startTime: "10:00", endTime: "14:00" },
   ];
   for (const s of entries) {
-    await Schedule.findOneAndUpdate({ doctorId: s.doctorId, date: s.date, startTime: s.startTime }, s, { upsert: true, new: true, setDefaultsOnInsert: true });
+    await Schedule.findOneAndUpdate({ doctorId: s.doctorId, dayOfWeek: s.dayOfWeek, startTime: s.startTime }, s, { upsert: true, new: true, setDefaultsOnInsert: true });
   }
-  console.log(`Seeded ${entries.length} doctor schedules`);
+  console.log(`Seeded ${entries.length} weekly doctor availability windows`);
 }
 
 async function seedChannelingHistory() {
