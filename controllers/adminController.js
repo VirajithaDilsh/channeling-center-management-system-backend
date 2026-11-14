@@ -92,7 +92,7 @@ exports.getAdmins = async (req, res) => {
 
   try {
 
-    const admins = await Admin.find();
+    const admins = await Admin.find().select("-password");
 
     res.json(admins);
 
@@ -109,7 +109,7 @@ exports.getAdminById = async (req, res) => {
 
   try {
 
-    const admin = await Admin.findById(req.params.id);
+    const admin = await Admin.findById(req.params.id).select("-password");
 
     if (!admin) return res.status(404).json({ message: "Admin not found" });
 
@@ -132,7 +132,7 @@ exports.updateAdmin = async (req, res) => {
       req.params.id,
       req.body,
       { new: true }
-    );
+    ).select("-password");
 
     if (!admin) return res.status(404).json({ message: "Admin not found" });
 

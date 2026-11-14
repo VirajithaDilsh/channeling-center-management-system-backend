@@ -3,6 +3,23 @@ const VisitSession = require("../models/VisitSession");
 const Prescription = require("../models/Prescription");
 const Doctor = require("../models/Doctor");
 const SystemSettings = require("../models/SystemSettings");
+const { resolveDoctorIdentity } = require("../services/doctorIdentityService");
+
+const SESSION_READ_PERMISSIONS = [
+  "pharmacy_read",
+  "pharmacy_allow_all",
+  "billing_read",
+  "billing_allow_all",
+];
+
+async function canReadVisitSession(req, session) {
+  const perms = req.user?.permissions || [];
+  if (SESSION_READ_PERMISSIONS.some((p) => perms.includes(p))) {
+    return true;
+  }
+  const doctor = await resolveDoctorIdentity(req);
+  return Boolean(doctor && session.doctorId && String(session.doctorId) === String(doctor.doctorId));
+}
 
 class HttpError extends Error {
   constructor(status, message) {
@@ -44,6 +61,9 @@ exports.getVisitSession = async (req, res) => {
   try {
     const session = await VisitSession.findById(req.params.id);
     if (!session) return res.status(404).json({ message: "Visit session not found" });
+    if (!(await canReadVisitSession(req, session))) {
+      return res.status(403).json({ message: "Not authorized for this resource" });
+    }
     res.json(session);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -54,6 +74,9 @@ exports.getVisitSessionByAppointment = async (req, res) => {
   try {
     const session = await VisitSession.findOne({ appointmentId: req.params.appointmentId });
     if (!session) return res.status(404).json({ message: "Visit session not found" });
+    if (!(await canReadVisitSession(req, session))) {
+      return res.status(403).json({ message: "Not authorized for this resource" });
+    }
     res.json(session);
   } catch (err) {
     res.status(500).json({ message: err.message });
