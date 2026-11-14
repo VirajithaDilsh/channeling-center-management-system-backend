@@ -33,7 +33,7 @@ function validateExpiryDate(expiryDate, { required = false } = {}) {
     return null;
 }
 
-function sanitizeMedicinePayload(body = {}) {
+function sanitizeMedicinePayload(body = {}, { requireExpiry = false } = {}) {
     const payload = {};
     for (const field of ALLOWED_MEDICINE_FIELDS) {
         if (body[field] !== undefined) {
@@ -41,7 +41,7 @@ function sanitizeMedicinePayload(body = {}) {
         }
     }
 
-    const expiryError = validateExpiryDate(payload.expiryDate);
+    const expiryError = validateExpiryDate(payload.expiryDate, { required: requireExpiry });
     if (expiryError) {
         return { error: expiryError };
     }
@@ -64,7 +64,7 @@ exports.sanitizeMedicinePayload = sanitizeMedicinePayload;
 // CREATE
 exports.addMedicine = async (req, res) => {
     try {
-        const { payload, error } = sanitizeMedicinePayload(req.body);
+        const { payload, error } = sanitizeMedicinePayload(req.body, { requireExpiry: true });
         if (error) {
             return res.status(400).json({ message: error });
         }
@@ -95,6 +95,10 @@ exports.updateMedicine = async (req, res) => {
             : null;
         if (expiryError) {
             return res.status(400).json({ message: expiryError });
+        }
+        const { payload, error } = sanitizeMedicinePayload(req.body);
+        if (error) {
+            return res.status(400).json({ message: error });
         }
         const updated = await Medicine.findByIdAndUpdate(
             req.params.id,

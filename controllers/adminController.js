@@ -128,9 +128,14 @@ exports.updateAdmin = async (req, res) => {
 
   try {
 
+    // A blank password means "unchanged" (the edit form sends "" when the
+    // field is left empty); never overwrite the stored hash with it.
+    const update = { ...req.body };
+    if (!update.password) delete update.password;
+
     const admin = await Admin.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      update,
       { new: true }
     ).select("-password");
 

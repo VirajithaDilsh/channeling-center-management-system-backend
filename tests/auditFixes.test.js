@@ -146,3 +146,22 @@ test("RBAC middleware enforces admin-only access and permission checks", () => {
   assert.equal(nextCalled, false);
 });
 
+
+test("sanitizeMedicinePayload can require an expiry date (used by create)", () => {
+  assert.match(sanitizeMedicinePayload({ name: "X" }, { requireExpiry: true }).error, /Expiry date is required/);
+  assert.ok(sanitizeMedicinePayload({ name: "X", expiryDate: "2027-01-01" }, { requireExpiry: true }).payload);
+});
+
+test("updateMedicine applies a sanitized payload instead of throwing", async () => {
+  const Medicine = require("../models/Medicine");
+  const { updateMedicine } = require("../controllers/medicineController");
+  const original = Medicine.findByIdAndUpdate;
+  let received;
+  Medicine.findByIdAndUpdate = async (id, payload) => { received = payload; return { _id: id, ...payload }; };
+  const res = { statusCode: 200, body: null, status(c) { this.statusCode = c; return this; }, json(b) { this.body = b; return this; } };
+  try {
+    await updateMedicine({ params: { id: "1" }, body: { name: "A", isAdmin: true, unitPrice: "5" } }, res);
+  } finally { Medicine.findByIdAndUpdate = original; }
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(received, { name: "A", unitPrice: 5 });
+});
