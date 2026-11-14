@@ -22,9 +22,9 @@ const NON_NEGATIVE_NUMERIC_FIELDS = [
     { key: "reorderLevel", label: "Reorder level" },
 ];
 
-function validateExpiryDate(expiryDate) {
+function validateExpiryDate(expiryDate, { required = false } = {}) {
     if (expiryDate === undefined || expiryDate === null || expiryDate === "") {
-        return null;
+        return required ? "Expiry date is required" : null;
     }
     const parsed = new Date(expiryDate);
     if (Number.isNaN(parsed.getTime())) {
@@ -89,9 +89,12 @@ exports.getMedicines = async (req, res) => {
 // UPDATE
 exports.updateMedicine = async (req, res) => {
     try {
-        const { payload, error } = sanitizeMedicinePayload(req.body);
-        if (error) {
-            return res.status(400).json({ message: error });
+        // Expiry date is mandatory: reject an update that blanks it out.
+        const expiryError = "expiryDate" in req.body
+            ? validateExpiryDate(req.body.expiryDate, { required: true })
+            : null;
+        if (expiryError) {
+            return res.status(400).json({ message: expiryError });
         }
         const updated = await Medicine.findByIdAndUpdate(
             req.params.id,
