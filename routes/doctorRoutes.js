@@ -6,6 +6,7 @@ const {
   createDoctor,
   getDoctors,
   getDoctorById,
+  getDoctorAvailability,
   updateDoctor,
   deleteDoctor,
   getSchedulesByDoctor,  // 👈 add these
@@ -38,6 +39,8 @@ router.delete("/me/schedules/:id", requirePermission("doctor_portal"), deleteMyS
 router.post("/", requirePermission("doctors_write", "doctors_allow_all"), createDoctor);
 router.get("/", requirePermission("doctors_read", "doctors_allow_all"), getDoctors);
 router.get("/:id", requirePermission("doctors_read", "doctors_allow_all"), getDoctorById);
+// Bookable dates for the appointment form — also open to anyone who can book.
+router.get("/:id/availability", requirePermission("doctors_read", "doctors_allow_all", "appointments_write", "appointments_allow_all"), getDoctorAvailability);
 router.put("/:id", requirePermission("doctors_edit", "doctors_allow_all"), updateDoctor);
 router.delete("/:id", requirePermission("doctors_edit", "doctors_allow_all"), deleteDoctor);
 

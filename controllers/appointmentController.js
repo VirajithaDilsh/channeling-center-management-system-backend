@@ -2,6 +2,9 @@ const Appointment = require("../models/Appointment");
 const { openForAppointment } = require("./visitSessionController");
 const SystemSettings = require("../models/SystemSettings");
 const { resolveDoctorIdentity } = require("../services/doctorIdentityService");
+const Doctor = require("../models/Doctor");
+const Schedule = require("../models/Schedule");
+const availability = require("../services/availabilityService");
 
 function hasModuleGrant(req) {
   const perms = req.user?.permissions || [];
@@ -18,6 +21,51 @@ function combineDateAndTime(date, time) {
     combined.setHours(h, m, 0, 0);
   }
   return combined;
+}
+
+// Verifies the doctor is actually available for the requested date (and time,
+// if given) per their weekly windows, and that the window isn't full.
+// Returns { error, status } or { time } (time defaults to the window start).
+async function checkBookable({ doctorId, date, time, excludeAppointmentId }) {
+  const dateKey = availability.toDateKey(date);
+  if (!doctorId || !dateKey) return { error: "A valid doctor and date are required", status: 400 };
+
+  const doctor = await Doctor.findById(doctorId);
+  if (!doctor) return { error: "Doctor not found", status: 404 };
+  if (doctor.status === "On Leave") return { error: "This doctor is currently on leave", status: 409 };
+
+  const today = availability.localTodayKey();
+  if (dateKey < today) return { error: "Appointments can't be booked in the past", status: 400 };
+
+  const windows = await Schedule.find({ doctorId, dayOfWeek: { $ne: null }, status: "Active" });
+  const window = availability.findWindowForDate(windows, dateKey, time || undefined);
+  if (!window) {
+    return {
+      error: time
+        ? "The doctor is not available at that date and time"
+        : "The doctor is not available on that date",
+      status: 409,
+    };
+  }
+  if (dateKey === today && availability.toMinutes(window.endTime) <= availability.localMinutes()) {
+    return { error: "That availability window has already ended today", status: 409 };
+  }
+
+  const start = new Date(`${dateKey}T00:00:00Z`);
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 1);
+  const filter = { doctorId, status: { $ne: "Cancelled" }, date: { $gte: start, $lt: end } };
+  if (excludeAppointmentId) filter._id = { $ne: excludeAppointmentId };
+  const sameDay = await Appointment.find(filter).lean();
+  const dayWindows = windows.filter((w) => w.dayOfWeek === window.dayOfWeek);
+  const booked = availability.countInWindow(window, sameDay, dayWindows);
+  if (availability.remainingFor(window, booked) === 0) {
+    return {
+      error: `The doctor is fully booked for ${window.startTime}-${window.endTime} on that date (max ${window.maxPatients})`,
+      status: 409,
+    };
+  }
+  return { time: time || window.startTime };
 }
 
 exports.getAppointments = async (req, res) => {
@@ -73,9 +121,19 @@ exports.createAppointment = async (req, res) => {
       }
     }
 
+    const bookable = await checkBookable({
+      doctorId: req.body.doctorId,
+      date: req.body.date,
+      time: req.body.time,
+    });
+    if (bookable.error) return res.status(bookable.status).json({ message: bookable.error });
+
+    // New bookings always start as Scheduled; the client can't pre-set status.
+    const { status: _ignoredStatus, ...body } = req.body;
     const appointment = new Appointment({
       durationMinutes: rules.defaultDurationMinutes,
-      ...req.body,
+      ...body,
+      time: bookable.time,
     });
     await appointment.save();
 
@@ -108,6 +166,23 @@ exports.updateAppointment = async (req, res) => {
           message: `Appointments can't be cancelled within ${settings.appointments.cancellationWindowHours} hour(s) of the scheduled time`,
         });
       }
+    }
+
+    // Re-check availability only when the doctor/date/time actually moves, so
+    // status changes and edits to old appointments keep working.
+    const sameDate = (a, b) => availability.toDateKey(a) === availability.toDateKey(b);
+    const moved =
+      (req.body.doctorId !== undefined && String(req.body.doctorId) !== String(existing.doctorId)) ||
+      (req.body.date !== undefined && !sameDate(req.body.date, existing.date)) ||
+      (req.body.time !== undefined && req.body.time !== existing.time);
+    if (moved && req.body.status !== "Cancelled") {
+      const bookable = await checkBookable({
+        doctorId: req.body.doctorId ?? existing.doctorId,
+        date: req.body.date ?? existing.date,
+        time: req.body.time ?? existing.time,
+        excludeAppointmentId: existing._id,
+      });
+      if (bookable.error) return res.status(bookable.status).json({ message: bookable.error });
     }
 
     const appointment = await Appointment.findByIdAndUpdate(req.params.id, req.body, { new: true });
