@@ -3,7 +3,7 @@ const Schedule = require("../models/Schedule"); // 👈 add this import
 const Admin = require("../models/Admin");
 const Appointment = require("../models/Appointment");
 const SystemSettings = require("../models/SystemSettings");
-const { createDoctorAccount } = require("../services/doctorAccountService");
+const { createDoctorAccount, setDoctorPassword: setDoctorPasswordService } = require("../services/doctorAccountService");
 const availability = require("../services/availabilityService");
 
 // Validates a weekly window and rejects overlaps with the doctor's other
@@ -68,7 +68,14 @@ exports.getDoctors = async (req, res) => {
     windows.forEach((w) => {
       (byDoctor[String(w.doctorId)] ||= []).push(w);
     });
-    res.json(doctors.map((d) => ({ ...d, weeklySchedule: byDoctor[String(d._id)] || [] })));
+    // Whether each doctor already has a login (lets the UI label "Create login" vs "Reset password").
+    const accounts = await Admin.find({ doctorId: { $ne: null } }).select("doctorId");
+    const withAccount = new Set(accounts.map((a) => String(a.doctorId)));
+    res.json(doctors.map((d) => ({
+      ...d,
+      weeklySchedule: byDoctor[String(d._id)] || [],
+      hasAccount: withAccount.has(String(d._id)),
+    })));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -123,6 +130,19 @@ exports.getDoctorAvailability = async (req, res) => {
     res.json({ doctorId: doctor._id, status: doctor.status, onLeave: doctor.status === "On Leave", dates: result });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+// Admin-only: set (create or reset) a doctor's login password.
+exports.setDoctorPassword = async (req, res) => {
+  try {
+    const { created } = await setDoctorPasswordService(req.params.id, req.body?.newPassword);
+    res.json({
+      created,
+      message: created ? "Login created with the new password" : "Password reset successfully",
+    });
+  } catch (error) {
+    res.status(error.status || 500).json({ message: error.status ? error.message : "Could not set the password" });
   }
 };
 
