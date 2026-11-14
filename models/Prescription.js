@@ -31,6 +31,9 @@ const prescriptionSchema = new mongoose.Schema({
   notes: String,
 
   items: [prescriptionItemSchema],
+  // Set when the pharmacist clicks "Send to Billing" on a fully resolved
+  // prescription — takes the card off the dispensing queue.
+  handedToBilling: { type: Boolean, default: false, index: true },
   status: { type: String, enum: ["PENDING", "RESOLVED"], default: "PENDING", index: true },
 }, { timestamps: true });
 

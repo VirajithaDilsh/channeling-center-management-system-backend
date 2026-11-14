@@ -32,11 +32,30 @@ exports.getPrescriptionsByPatient = async (req, res) => {
   }
 };
 
-// Pharmacy counter's inbound queue: every item still awaiting action, oldest first.
+// Pharmacy counter's queue: every prescription not yet handed to billing
+// (pending ones and fully resolved ones awaiting "Send to Billing"), oldest first.
 exports.getPharmacyQueue = async (req, res) => {
   try {
-    const prescriptions = await Prescription.find({ status: "PENDING" }).sort({ createdAt: 1 });
+    const prescriptions = await Prescription.find({ handedToBilling: { $ne: true } }).sort({ createdAt: 1 });
     res.json(prescriptions);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Takes a fully resolved prescription off the queue. The visit session is
+// already READY_FOR_PAYMENT (see resolveSessionIfDone); this just dismisses
+// the card and tells the client which bill to open.
+exports.handoffToBilling = async (req, res) => {
+  try {
+    const prescription = await Prescription.findById(req.params.id);
+    if (!prescription) return res.status(404).json({ message: "Prescription not found" });
+    if (prescription.status !== "RESOLVED") {
+      return res.status(409).json({ message: "Some medicines are still waiting — resolve them before sending to billing" });
+    }
+    prescription.handedToBilling = true;
+    await prescription.save();
+    res.json({ prescription, visitSessionId: prescription.visitSessionId });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

@@ -15,4 +15,6 @@ router.post("/", requirePermission("doctor_portal"), prescriptionController.crea
 router.post("/:id/items/:itemId/dispense", requirePermission("pharmacy_edit", "pharmacy_allow_all"), prescriptionController.dispenseItem);
 router.post("/:id/items/:itemId/reject", requirePermission("pharmacy_edit", "pharmacy_allow_all"), prescriptionController.rejectItem);
 
+router.post("/:id/handoff", requirePermission("pharmacy_edit", "pharmacy_allow_all"), prescriptionController.handoffToBilling);
+
 module.exports = router;
