@@ -6,6 +6,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
 from forecasting import forecast
+from stockout import predict_stockout_batch
 
 app = FastAPI(title="Revenue forecast service", docs_url=None, redoc_url=None)
 
@@ -48,3 +49,33 @@ def health():
 @app.post("/forecast", dependencies=[Depends(check_key)])
 def post_forecast(req: ForecastRequest):
     return forecast([p.model_dump() for p in req.points], req.horizon, req.currentMonth)
+
+
+class StockoutHistoryPoint(BaseModel):
+    date: str
+    qty: float
+
+
+class StockoutMedicineInput(BaseModel):
+    medicineId: str = Field(min_length=1, max_length=128)
+    currentStock: float = Field(default=0)
+    reorderLevel: float = Field(default=0)
+    isExpired: bool = False
+    history: list[StockoutHistoryPoint] = Field(default_factory=list, max_length=365)
+
+
+class StockoutRequest(BaseModel):
+    horizonDays: int = Field(default=30, ge=1, le=90)
+    windowDays: int = Field(default=30, ge=7, le=90)
+    asOfDate: Optional[str] = Field(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$")
+    medicines: list[StockoutMedicineInput] = Field(default_factory=list, max_length=5000)
+
+
+@app.post("/predict/stockout", dependencies=[Depends(check_key)])
+def post_stockout(req: StockoutRequest):
+    return predict_stockout_batch(
+        [m.model_dump() for m in req.medicines],
+        horizon_days=req.horizonDays,
+        as_of_date_str=req.asOfDate,
+        window_days=req.windowDays,
+    )

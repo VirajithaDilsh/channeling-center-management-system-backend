@@ -1,4 +1,5 @@
 const Medicine = require("../models/Medicine");
+const stockoutService = require("../services/stockoutService");
 
 const ALLOWED_MEDICINE_FIELDS = [
     "name",
@@ -128,5 +129,22 @@ exports.deleteMedicine = async (req, res) => {
         res.json({ message: "Medicine deleted" });
     } catch (error) {
         res.status(500).json({ message: error.message });
+    }
+};
+
+// STOCK-OUT PREDICTIONS
+exports.getStockoutPredictions = async (req, res) => {
+    try {
+        const rawHorizon = req.query.horizonDays ?? req.query.horizon ?? 30;
+        const horizonDays = Number(rawHorizon);
+        if (!Number.isInteger(horizonDays) || horizonDays < 1 || horizonDays > 90) {
+            return res.status(400).json({ message: "horizonDays must be an integer between 1 and 90" });
+        }
+
+        const result = await stockoutService.getStockoutPredictions({ horizonDays });
+        res.json(result);
+    } catch (error) {
+        const status = error.status || 500;
+        res.status(status).json({ message: error.message });
     }
 };

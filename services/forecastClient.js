@@ -17,10 +17,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // Free hosts (Render) sleep when idle and answer 502/503 while waking. Retry
 // those (and network errors/timeouts) until the wake deadline instead of
 // failing on the first attempt.
-async function requestForecast({ points, horizon, currentMonth }) {
+async function postForecastService(path, body) {
   const base = process.env.FORECAST_SERVICE_URL;
   if (!base) throw new ForecastUnavailable("Forecast service is not configured");
-  const url = `${base.replace(/\/$/, "")}/forecast`;
+  const url = `${base.replace(/\/$/, "")}${path}`;
   const deadline = Date.now() + WAKE_MS;
   let lastMessage = "Forecast service is unreachable";
 
@@ -31,7 +31,7 @@ async function requestForecast({ points, horizon, currentMonth }) {
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-API-Key": process.env.FORECAST_SERVICE_KEY || "" },
-        body: JSON.stringify({ points, horizon, currentMonth }),
+        body: JSON.stringify(body),
         signal: ctrl.signal,
       });
       if (res.ok) return await res.json();
@@ -51,6 +51,14 @@ async function requestForecast({ points, horizon, currentMonth }) {
   }
 }
 
+async function requestForecast({ points, horizon, currentMonth }) {
+  return postForecastService("/forecast", { points, horizon, currentMonth });
+}
+
+async function requestStockoutPredictions({ horizonDays, windowDays, asOfDate, medicines }) {
+  return postForecastService("/predict/stockout", { horizonDays, windowDays, asOfDate, medicines });
+}
+
 // Fire-and-forget ping so a sleeping service starts waking before it's needed.
 function wakeForecastService() {
   const base = process.env.FORECAST_SERVICE_URL;
@@ -58,4 +66,4 @@ function wakeForecastService() {
   fetch(`${base.replace(/\/$/, "")}/health`, { signal: AbortSignal.timeout(5000) }).catch(() => {});
 }
 
-module.exports = { requestForecast, wakeForecastService, ForecastUnavailable };
+module.exports = { requestForecast, requestStockoutPredictions, wakeForecastService, ForecastUnavailable };

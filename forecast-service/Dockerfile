@@ -2,7 +2,7 @@ FROM python:3.12-slim
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY forecasting.py main.py ./
+COPY forecasting.py stockout.py main.py ./
 RUN useradd --system --uid 10001 app
 USER app
 EXPOSE 8001
