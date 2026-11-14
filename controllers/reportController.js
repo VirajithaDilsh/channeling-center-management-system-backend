@@ -1,5 +1,5 @@
 const svc = require("../services/reportService");
-const { ForecastUnavailable } = require("../services/forecastClient");
+const { ForecastUnavailable, wakeForecastService } = require("../services/forecastClient");
 const { buildForecast } = require("../services/forecastService");
 
 function handle(fn) {
@@ -33,6 +33,7 @@ function resolvePeriod(q) {
 }
 
 exports.summary = handle(async (req) => {
+  wakeForecastService();
   const now = new Date();
   const thisMonth = svc.currentMonthKey(now);
   const year = req.query.year ? svc.parseYear(req.query.year) : Number(thisMonth.slice(0, 4));
