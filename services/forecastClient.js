@@ -58,4 +58,19 @@ function wakeForecastService() {
   fetch(`${base.replace(/\/$/, "")}/health`, { signal: AbortSignal.timeout(5000) }).catch(() => {});
 }
 
-module.exports = { requestForecast, wakeForecastService, ForecastUnavailable };
+// One awaited health probe, used by the "Wake Up Forecast Service" button. The
+// client polls this endpoint, so each call stays short. A timeout, network error
+// or non-2xx answer just means "still waking", not a failure.
+async function checkForecastHealth() {
+  const base = process.env.FORECAST_SERVICE_URL;
+  if (!base) throw new ForecastUnavailable("Forecast service is not configured");
+  const timeout = Number(process.env.FORECAST_HEALTH_TIMEOUT_MS) || 8000;
+  try {
+    const res = await fetch(`${base.replace(/\/$/, "")}/health`, { signal: AbortSignal.timeout(timeout) });
+    return { healthy: res.ok };
+  } catch {
+    return { healthy: false };
+  }
+}
+
+module.exports = { requestForecast, wakeForecastService, checkForecastHealth, ForecastUnavailable };

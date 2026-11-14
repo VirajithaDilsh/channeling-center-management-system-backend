@@ -1,5 +1,5 @@
 const svc = require("../services/reportService");
-const { ForecastUnavailable, wakeForecastService } = require("../services/forecastClient");
+const { ForecastUnavailable, wakeForecastService, checkForecastHealth } = require("../services/forecastClient");
 const { buildForecast } = require("../services/forecastService");
 
 function handle(fn) {
@@ -82,6 +82,13 @@ exports.compare = handle(async (req) => {
       paidSessions: ta.paidSessions - tb.paidSessions,
     },
   };
+});
+
+// Pings the forecast service's /health (which also wakes a sleeping Render
+// instance). The client polls this until it answers "ready".
+exports.forecastWake = handle(async () => {
+  const { healthy } = await checkForecastHealth();
+  return { status: healthy ? "ready" : "waking" };
 });
 
 // Actual history (36 months) plus a validated forecast. Actuals are always
