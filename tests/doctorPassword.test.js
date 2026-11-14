@@ -120,3 +120,27 @@ test("route guard: only admins pass requireAdmin", () => {
   requireAdmin({ user: { role: " Admin " } }, createMockRes(), () => { nextCalled = true; });
   assert.equal(nextCalled, true);
 });
+
+test("resetAdminPassword: validates, 404s, hashes via save and never echoes the password", async () => {
+  const { resetAdminPassword } = require("../controllers/adminController");
+
+  const short = createMockRes();
+  await resetAdminPassword({ params: { id: "a1" }, body: { newPassword: "123" } }, short);
+  assert.equal(short.statusCode, 400);
+
+  await withStubs([[Admin, "findById", async () => null]], async () => {
+    const res = createMockRes();
+    await resetAdminPassword({ params: { id: "nope" }, body: { newPassword: "secret1" } }, res);
+    assert.equal(res.statusCode, 404);
+  });
+
+  const account = { password: "old", saved: false, async save() { this.saved = true; } };
+  await withStubs([[Admin, "findById", async () => account]], async () => {
+    const res = createMockRes();
+    await resetAdminPassword({ params: { id: "a1" }, body: { newPassword: "secret1" } }, res);
+    assert.equal(res.statusCode, 200);
+    assert.equal(account.password, "secret1");
+    assert.equal(account.saved, true);
+    assert.equal(JSON.stringify(res.body).includes("secret1"), false);
+  });
+});

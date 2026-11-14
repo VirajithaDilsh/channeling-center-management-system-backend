@@ -32,13 +32,54 @@ exports.getPrescriptionsByPatient = async (req, res) => {
   }
 };
 
-// Pharmacy counter's inbound queue: every item still awaiting action, oldest first.
+// Pharmacy counter's queue: every prescription not yet handed to billing
+// (pending ones and fully resolved ones awaiting "Send to Billing"), oldest first.
 exports.getPharmacyQueue = async (req, res) => {
   try {
-    const prescriptions = await Prescription.find({ status: "PENDING" }).sort({ createdAt: 1 });
+    const prescriptions = await Prescription.find({ handedToBilling: { $ne: true } }).sort({ createdAt: 1 });
     res.json(prescriptions);
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+// Takes a fully resolved prescription off the queue. The visit session is
+// already READY_FOR_PAYMENT (see resolveSessionIfDone); this just dismisses
+// the card and tells the client which bill to open.
+//
+// Partly dispensed items (stock ran short) can be sent too: the pharmacist is
+// accepting what was handed over, so PARTIAL items are closed as DISPENSED at
+// their dispensed quantity (qtyDispensed < qtyPrescribed stays on record) and
+// the visit session advances to READY_FOR_PAYMENT. Items nothing has been
+// done on (QUEUED) still block the handoff.
+exports.handoffToBilling = async (req, res) => {
+  const dbSession = await mongoose.startSession();
+  try {
+    let result;
+    await dbSession.withTransaction(async () => {
+      const prescription = await Prescription.findById(req.params.id).session(dbSession);
+      if (!prescription) throw new HttpError(404, "Prescription not found");
+      if (prescription.items.some((i) => i.status === "QUEUED")) {
+        throw new HttpError(409, "Some medicines are still waiting — dispense or reject them before sending to billing");
+      }
+
+      const visitSession = await VisitSession.findById(prescription.visitSessionId).session(dbSession);
+      if (!visitSession) throw new HttpError(404, "Visit session not found");
+
+      prescription.items.forEach((i) => {
+        if (i.status === "PARTIAL") i.status = "DISPENSED";
+      });
+      await resolveSessionIfDone(prescription, visitSession, dbSession, req.user?.name);
+
+      prescription.handedToBilling = true;
+      await prescription.save({ session: dbSession });
+      result = prescription;
+    });
+    res.json({ prescription: result, visitSessionId: result.visitSessionId });
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message });
+  } finally {
+    dbSession.endSession();
   }
 };
 
