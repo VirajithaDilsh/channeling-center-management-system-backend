@@ -1,8 +1,23 @@
 const Medicine = require("../models/Medicine");
 
+function validateExpiryDate(expiryDate) {
+    if (expiryDate === undefined || expiryDate === null || expiryDate === "") {
+        return null;
+    }
+    const parsed = new Date(expiryDate);
+    if (Number.isNaN(parsed.getTime())) {
+        return "Invalid expiry date";
+    }
+    return null;
+}
+
 // CREATE
 exports.addMedicine = async (req, res) => {
     try {
+        const expiryError = validateExpiryDate(req.body.expiryDate);
+        if (expiryError) {
+            return res.status(400).json({ message: expiryError });
+        }
         const medicine = new Medicine(req.body);
         const savedMedicine = await medicine.save();
         res.status(201).json(savedMedicine);
@@ -24,6 +39,10 @@ exports.getMedicines = async (req, res) => {
 // UPDATE
 exports.updateMedicine = async (req, res) => {
     try {
+        const expiryError = validateExpiryDate(req.body.expiryDate);
+        if (expiryError) {
+            return res.status(400).json({ message: expiryError });
+        }
         const updated = await Medicine.findByIdAndUpdate(
             req.params.id,
             req.body,

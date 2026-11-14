@@ -3,6 +3,7 @@ const Prescription = require("../models/Prescription");
 const VisitSession = require("../models/VisitSession");
 const Medicine = require("../models/Medicine");
 const { resolveDoctorIdentity, doctorHasAppointmentWithPatient } = require("../services/doctorIdentityService");
+const { getColomboTodayStartUtc, isExpiredInColombo, formatColomboYmd } = require("../services/expiryAlertService");
 
 class HttpError extends Error {
   constructor(status, message) {
@@ -175,12 +176,30 @@ exports.dispenseItem = async (req, res) => {
       const remaining = item.qtyPrescribed - item.qtyDispensed;
       const qtyToDispense = Math.min(qtyDispensed > 0 ? qtyDispensed : remaining, remaining);
 
+      const colomboTodayStartUtc = getColomboTodayStartUtc();
       const medicine = await Medicine.findOneAndUpdate(
-        { _id: item.medicineId, stockQuantity: { $gte: qtyToDispense } },
+        {
+          _id: item.medicineId,
+          stockQuantity: { $gte: qtyToDispense },
+          $or: [
+            { expiryDate: null },
+            { expiryDate: { $exists: false } },
+            { expiryDate: { $gte: colomboTodayStartUtc } },
+          ],
+        },
         { $inc: { stockQuantity: -qtyToDispense } },
         { new: true, session: dbSession }
       );
-      if (!medicine) throw new HttpError(409, `Insufficient stock for ${item.name}`);
+      if (!medicine) {
+        const existing = await Medicine.findById(item.medicineId).session(dbSession);
+        if (existing && isExpiredInColombo(existing.expiryDate)) {
+          throw new HttpError(
+            400,
+            `Cannot dispense expired medicine: ${existing.name}${existing.batchNumber ? ` (Batch ${existing.batchNumber})` : ""} expired on ${formatColomboYmd(existing.expiryDate)}`
+          );
+        }
+        throw new HttpError(409, `Insufficient stock for ${item.name}`);
+      }
 
       item.qtyDispensed += qtyToDispense;
       item.status = item.qtyDispensed >= item.qtyPrescribed ? "DISPENSED" : "PARTIAL";

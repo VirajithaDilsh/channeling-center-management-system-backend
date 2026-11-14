@@ -59,6 +59,7 @@ app.use("/api/consultations", require("./routes/consultationRoutes"));
 app.use("/api/prescription-templates", require("./routes/prescriptionTemplateRoutes"));
 app.use("/api/external-prescriptions", require("./routes/externalPrescriptionRoutes"));
 app.use("/api/settings", require("./routes/settingsRoutes"));
+app.use("/api/notifications", require("./routes/notificationRoutes"));
 app.use("/api/reports", require("./routes/reportRoutes"));
 app.use("/api/assistant", require("./routes/assistantRoutes"));
 app.use("/api/icd10", require("./routes/icd10Routes"));

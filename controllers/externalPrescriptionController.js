@@ -3,6 +3,7 @@ const ExternalPrescription = require("../models/ExternalPrescription");
 const VisitSession = require("../models/VisitSession");
 const Medicine = require("../models/Medicine");
 const Patient = require("../models/Patient");
+const { getColomboTodayStartUtc, isExpiredInColombo, formatColomboYmd } = require("../services/expiryAlertService");
 
 class HttpError extends Error {
   constructor(status, message) {
@@ -83,15 +84,31 @@ exports.createExternalPrescription = async (req, res) => {
       for (const item of items) {
         const qty = Number(item.qty);
 
-        // Conditional decrement: if stock is short the update matches nothing
-        // and the whole transaction aborts, so no partial giveaway occurs.
+        const colomboTodayStartUtc = getColomboTodayStartUtc();
+        // Conditional decrement: if stock is short or medicine is expired, the
+        // update matches nothing and the whole transaction aborts, so no partial
+        // giveaway occurs.
         const medicine = await Medicine.findOneAndUpdate(
-          { _id: item.medicineId, stockQuantity: { $gte: qty } },
+          {
+            _id: item.medicineId,
+            stockQuantity: { $gte: qty },
+            $or: [
+              { expiryDate: null },
+              { expiryDate: { $exists: false } },
+              { expiryDate: { $gte: colomboTodayStartUtc } },
+            ],
+          },
           { $inc: { stockQuantity: -qty } },
           { new: true, session: dbSession }
         );
         if (!medicine) {
           const existing = await Medicine.findById(item.medicineId).session(dbSession);
+          if (existing && isExpiredInColombo(existing.expiryDate)) {
+            throw new HttpError(
+              400,
+              `Cannot dispense expired medicine: ${existing.name}${existing.batchNumber ? ` (Batch ${existing.batchNumber})` : ""} expired on ${formatColomboYmd(existing.expiryDate)}`
+            );
+          }
           throw new HttpError(
             409,
             existing
