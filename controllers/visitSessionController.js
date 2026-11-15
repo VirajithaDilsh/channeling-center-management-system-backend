@@ -86,8 +86,8 @@ exports.getVisitSessionByAppointment = async (req, res) => {
 exports.listVisitSessions = async (req, res) => {
   try {
     const filter = {};
-    if (req.query.status) filter.status = req.query.status;
-    if (req.query.patientId) filter.patientId = req.query.patientId;
+    if (typeof req.query.status === "string" && req.query.status) filter.status = req.query.status;
+    if (typeof req.query.patientId === "string" && req.query.patientId) filter.patientId = req.query.patientId;
     const sessions = await VisitSession.find(filter).sort({ createdAt: -1 });
     res.json(sessions);
   } catch (err) {

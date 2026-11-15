@@ -17,7 +17,7 @@ const TERMINAL_STATUSES = ["CLOSED", "CANCELED"];
 exports.listExternalPrescriptions = async (req, res) => {
   try {
     const filter = {};
-    if (req.query.patientId) filter.patientId = req.query.patientId;
+    if (typeof req.query.patientId === "string" && req.query.patientId) filter.patientId = req.query.patientId;
     const records = await ExternalPrescription.find(filter).sort({ dispensedAt: -1 }).limit(200);
     res.json(records);
   } catch (err) {

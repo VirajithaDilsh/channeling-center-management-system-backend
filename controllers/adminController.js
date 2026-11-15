@@ -89,40 +89,23 @@ exports.createAdmin = async (req, res) => {
 
 
 exports.getAdmins = async (req, res) => {
-
   try {
-
     const admins = await Admin.find().select("-password");
-
     res.json(admins);
-
   } catch (error) {
-
     res.status(500).json({ message: error.message });
-
   }
-
 };
-
 
 exports.getAdminById = async (req, res) => {
-
   try {
-
     const admin = await Admin.findById(req.params.id).select("-password");
-
     if (!admin) return res.status(404).json({ message: "Admin not found" });
-
     res.json(admin);
-
   } catch (error) {
-
     res.status(500).json({ message: error.message });
-
   }
-
 };
-
 
 exports.updateAdmin = async (req, res) => {
 

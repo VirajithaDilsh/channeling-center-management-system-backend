@@ -121,6 +121,11 @@ exports.saveConsultationDraft = async (req, res) => {
     const appointment = await Appointment.findById(appointmentId);
     if (!appointment) return res.status(404).json({ message: "Appointment not found" });
 
+    const owns = await doctorOwnsAppointment(identity.doctorId, appointmentId);
+    if (!owns) {
+      return res.status(403).json({ message: "Not authorized for this resource" });
+    }
+
     let consultation = await Consultation.findOne({ appointmentId });
 
     if (consultation && consultation.status === "COMPLETED") {
@@ -196,6 +201,9 @@ exports.completeConsultation = async (req, res) => {
     await dbSession.withTransaction(async () => {
       const appointment = await Appointment.findById(appointmentId).session(dbSession);
       if (!appointment) throw new HttpError(404, "Appointment not found");
+
+      const owns = await doctorOwnsAppointment(identity.doctorId, appointmentId);
+      if (!owns) throw new HttpError(403, "Not authorized for this resource");
 
       let consultation = await Consultation.findOne({ appointmentId }).session(dbSession);
       if (consultation?.status === "COMPLETED") {

@@ -4,8 +4,11 @@ const Role = require("../models/Role");
 
 exports.login = async (req, res) => {
   const { email, password } = req.body;
+  if (!email || !password || typeof email !== "string" || typeof password !== "string") {
+    return res.status(400).json({ message: "Invalid credentials" });
+  }
   try {
-    const admin = await Admin.findOne({ email }).populate("doctorId", "name");
+    const admin = await Admin.findOne({ email: email.trim() }).populate("doctorId", "name");
     if (!admin) return res.status(400).json({ message: "Invalid credentials" });
 
     const matches = await admin.comparePassword(password);
@@ -41,8 +44,11 @@ exports.login = async (req, res) => {
 
 exports.resetPassword = async (req, res) => {
   const { email, newPassword } = req.body;
+  if (!email || !newPassword || typeof email !== "string" || typeof newPassword !== "string") {
+    return res.status(400).json({ message: "Email and new password are required" });
+  }
   try {
-    const admin = await Admin.findOne({ email });
+    const admin = await Admin.findOne({ email: email.trim() });
     if (!admin) return res.status(400).json({ message: "Email not found" });
 
     admin.password = newPassword;

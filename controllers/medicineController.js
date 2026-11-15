@@ -72,7 +72,7 @@ exports.addMedicine = async (req, res) => {
         const savedMedicine = await medicine.save();
         res.status(201).json(savedMedicine);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(400).json({ message: error.message });
     }
 };
 
