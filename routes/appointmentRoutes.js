@@ -9,6 +9,7 @@ router.use(verifyToken);
 // controller (see doctorIdentityService) — it's not a blanket grant like
 // appointments_read/appointments_allow_all.
 router.get("/", requirePermission("appointments_read", "appointments_allow_all", "doctor_portal"), appointmentController.getAppointments);
+router.get("/demand-forecast", requirePermission("appointments_read", "appointments_allow_all", "doctor_portal"), appointmentController.getAppointmentDemandForecast);
 router.get("/:id", requirePermission("appointments_read", "appointments_allow_all", "doctor_portal"), appointmentController.getAppointmentById);
 router.post("/", requirePermission("appointments_write", "appointments_allow_all"), appointmentController.createAppointment);
 router.put("/:id", requirePermission("appointments_edit", "appointments_allow_all"), appointmentController.updateAppointment);

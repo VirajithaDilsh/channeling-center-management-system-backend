@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Appointment = require("../models/Appointment");
 const { openForAppointment } = require("./visitSessionController");
 const SystemSettings = require("../models/SystemSettings");
@@ -5,6 +6,7 @@ const { resolveDoctorIdentity } = require("../services/doctorIdentityService");
 const Doctor = require("../models/Doctor");
 const Schedule = require("../models/Schedule");
 const availability = require("../services/availabilityService");
+const appointmentDemandService = require("../services/appointmentDemandService");
 
 function hasModuleGrant(req) {
   const perms = req.user?.permissions || [];
@@ -209,5 +211,37 @@ exports.deleteAppointment = async (req, res) => {
     res.json({ message: "Appointment deleted successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+exports.getAppointmentDemandForecast = async (req, res) => {
+  try {
+    const { doctorId } = req.query;
+    if (!doctorId || !mongoose.Types.ObjectId.isValid(String(doctorId))) {
+      return res.status(400).json({ message: "A valid doctorId is required" });
+    }
+
+    const horizonDays = Number(req.query.horizonDays ?? 7);
+    if (horizonDays !== 7 && horizonDays !== 14) {
+      return res.status(400).json({ message: "horizonDays must be 7 or 14" });
+    }
+
+    // Doctor-only accounts (doctor_portal without appointments_read/allow_all)
+    // may only request demand forecasts for their own doctor profile.
+    if (!hasModuleGrant(req)) {
+      const identity = await resolveDoctorIdentity(req);
+      if (!identity || String(identity.doctorId) !== String(doctorId)) {
+        return res.status(403).json({ message: "Not authorized for this resource" });
+      }
+    }
+
+    const result = await appointmentDemandService.getDoctorDemandForecast({
+      doctorId: String(doctorId),
+      horizonDays,
+    });
+    res.json(result);
+  } catch (err) {
+    const status = err.status || 500;
+    res.status(status).json({ message: err.message });
   }
 };

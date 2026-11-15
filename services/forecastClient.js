@@ -66,6 +66,16 @@ async function requestStockoutPredictions({ horizonDays, windowDays, asOfDate, m
   return postForecastService("/predict/stockout", { horizonDays, windowDays, asOfDate, medicines });
 }
 
+async function requestAppointmentDemandForecast({ doctorId, horizonDays, windowDays, asOfDate, history }) {
+  return postForecastService("/predict/appointment-demand", {
+    doctorId,
+    horizonDays,
+    windowDays,
+    asOfDate,
+    history,
+  });
+}
+
 // Fire-and-forget ping so a sleeping service starts waking before it's needed.
 function wakeForecastService() {
   const base = process.env.FORECAST_SERVICE_URL;
@@ -88,5 +98,12 @@ async function checkForecastHealth() {
   }
 }
 
-module.exports = { requestForecast, requestStockoutPredictions, wakeForecastService, ForecastUnavailable,checkForecastHealth };
+module.exports = {
+  requestForecast,
+  requestStockoutPredictions,
+  requestAppointmentDemandForecast,
+  wakeForecastService,
+  ForecastUnavailable,
+  checkForecastHealth,
+};
 

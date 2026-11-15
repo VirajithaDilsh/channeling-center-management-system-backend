@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from forecasting import forecast
 from stockout import predict_stockout_batch
+from appointment_demand import predict_doctor_demand
 
 app = FastAPI(title="Revenue forecast service", docs_url=None, redoc_url=None)
 
@@ -78,4 +79,28 @@ def post_stockout(req: StockoutRequest):
         horizon_days=req.horizonDays,
         as_of_date_str=req.asOfDate,
         window_days=req.windowDays,
+    )
+
+
+class DemandHistoryPoint(BaseModel):
+    date: str
+    count: int = Field(ge=0)
+
+
+class AppointmentDemandRequest(BaseModel):
+    doctorId: str = Field(min_length=1, max_length=128)
+    horizonDays: int = Field(default=7, ge=7, le=14)
+    windowDays: int = Field(default=90, ge=14, le=365)
+    asOfDate: Optional[str] = Field(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$")
+    history: list[DemandHistoryPoint] = Field(default_factory=list, max_length=365)
+
+
+@app.post("/predict/appointment-demand", dependencies=[Depends(check_key)])
+def post_appointment_demand(req: AppointmentDemandRequest):
+    return predict_doctor_demand(
+        doctor_id=req.doctorId,
+        as_of_date_str=req.asOfDate,
+        horizon_days=req.horizonDays,
+        window_days=req.windowDays,
+        history=[h.model_dump() for h in req.history],
     )
