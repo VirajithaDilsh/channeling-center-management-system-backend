@@ -97,7 +97,7 @@ exports.listVisitSessions = async (req, res) => {
 
 // Doctor clicks "Complete Appointment" with no further prescriptions to add.
 // If pharmacy items are still queued, the session stays PENDING_PHARMACY and
-// will flip to READY_FOR_PAYMENT on its own once dispensing resolves.
+// will flip to READY_FOR_PAYMENT once the pharmacist sends it to billing.
 exports.finalizeConsultation = async (req, res) => {
   try {
     const session = await VisitSession.findById(req.params.id);
