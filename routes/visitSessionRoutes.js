@@ -27,6 +27,6 @@ router.get(
 
 router.patch("/:id/finalize-consultation", requirePermission("doctor_portal"), visitSessionController.finalizeConsultation);
 router.post("/:id/payments", requirePermission("billing_write", "billing_allow_all"), visitSessionController.addPayment);
-router.post("/:id/cancel", requirePermission("pharmacy_edit", "pharmacy_allow_all"), visitSessionController.cancelVisitSession);
+router.post("/:id/cancel", requirePermission("pharmacy_edit", "pharmacy_allow_all", "billing_edit", "billing_allow_all"), visitSessionController.cancelVisitSession);
 
 module.exports = router;
