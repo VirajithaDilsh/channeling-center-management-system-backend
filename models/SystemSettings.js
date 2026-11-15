@@ -22,8 +22,8 @@ const systemSettingsSchema = new mongoose.Schema(
       centerFee: { type: Number, default: 300, min: 0 },
       enabledPaymentMethods: {
         type: [String],
-        enum: ["cash", "card", "insurance"],
-        default: ["cash", "card", "insurance"],
+        enum: ["cash"],
+        default: ["cash"],
       },
     },
     doctorDefaults: {

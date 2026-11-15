@@ -1,7 +1,7 @@
 const SystemSettings = require("../models/SystemSettings");
 const { isAdminRole } = require("../middleware/authMiddleware");
 
-const PAYMENT_METHODS = ["cash", "card", "insurance"];
+const PAYMENT_METHODS = ["cash"];
 
 // Non-sensitive fields needed pre-login (Login page branding) and by every
 // authenticated role regardless of the "settings" permission (e.g. billing
