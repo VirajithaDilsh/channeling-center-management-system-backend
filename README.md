@@ -1,6 +1,6 @@
-# ClinicConnect — Channeling Center Management System (Backend)
+# Lahiru Medical — Channeling Center Management System (Backend)
 
-Express + MongoDB API for the ClinicConnect channeling center management system. Pairs with the frontend in the sibling `channeling-center-management-system` repo.
+Express + MongoDB API for the Lahiru Medical channeling center management system. Pairs with the frontend in the sibling `channeling-center-management-system` repo.
 
 ## Tech Stack
 
