@@ -10,6 +10,7 @@ router.get("/summary", reportController.summary);
 router.get("/monthly", reportController.monthly);
 router.get("/by-doctor", reportController.byDoctor);
 router.get("/forecast", reportController.forecast);
+router.post("/forecast/wake", reportController.forecastWake);
 router.get("/compare", reportController.compare);
 
 module.exports = router;

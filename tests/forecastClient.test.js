@@ -32,6 +32,28 @@ test("non-retryable status fails immediately", async () => {
   assert.strictEqual(calls, 1);
 });
 
+test("checkForecastHealth: healthy when /health answers 200", async () => {
+  let url;
+  global.fetch = async (u) => { url = u; return { ok: true, status: 200 }; };
+  const { checkForecastHealth } = require("../services/forecastClient");
+  assert.deepStrictEqual(await checkForecastHealth(), { healthy: true });
+  assert.strictEqual(url, "http://forecast.test/health");
+});
+
+test("checkForecastHealth: 503 or network error means not healthy yet", async () => {
+  const { checkForecastHealth } = require("../services/forecastClient");
+  global.fetch = async () => ({ ok: false, status: 503 });
+  assert.deepStrictEqual(await checkForecastHealth(), { healthy: false });
+  global.fetch = async () => { throw new Error("ECONNREFUSED"); };
+  assert.deepStrictEqual(await checkForecastHealth(), { healthy: false });
+});
+
+test("checkForecastHealth: throws when URL is not configured", async () => {
+  delete process.env.FORECAST_SERVICE_URL;
+  const { checkForecastHealth, ForecastUnavailable } = require("../services/forecastClient");
+  await assert.rejects(checkForecastHealth(), ForecastUnavailable);
+});
+
 test("requestStockoutPredictions posts batched payload to /predict/stockout and retries 503", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const codes = [503, 200];

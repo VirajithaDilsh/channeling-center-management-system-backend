@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { verifyToken, requirePermission } = require("../middleware/authMiddleware");
+const { verifyToken, requirePermission, requireAdmin } = require("../middleware/authMiddleware");
 
 const {
   createAdmin,
@@ -10,7 +10,8 @@ const {
   deleteAdmin,
   getMe,
   updateMe,
-  changePassword
+  changePassword,
+  resetAdminPassword
 } = require("../controllers/adminController");
 
 router.use(verifyToken);
@@ -26,6 +27,9 @@ router.post("/", requirePermission("admin_write", "admin_allow_all"), createAdmi
 router.get("/", requirePermission("admin_read", "admin_allow_all"), getAdmins);
 
 router.get("/:id", requirePermission("admin_read", "admin_allow_all"), getAdminById);
+
+// Admin-only: set another user's password.
+router.put("/:id/password", requireAdmin, resetAdminPassword);
 
 router.put("/:id", requirePermission("admin_edit", "admin_allow_all"), updateAdmin);
 

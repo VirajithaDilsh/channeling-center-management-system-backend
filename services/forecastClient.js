@@ -17,6 +17,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // Free hosts (Render) sleep when idle and answer 502/503 while waking. Retry
 // those (and network errors/timeouts) until the wake deadline instead of
 // failing on the first attempt.
+
 async function postForecastService(path, body) {
   const base = process.env.FORECAST_SERVICE_URL;
   if (!base) throw new ForecastUnavailable("Forecast service is not configured");
@@ -51,9 +52,15 @@ async function postForecastService(path, body) {
   }
 }
 
+
 async function requestForecast({ points, horizon, currentMonth }) {
-  return postForecastService("/forecast", { points, horizon, currentMonth });
+  return postForecastService("/forecast", {
+    points,
+    horizon,
+    currentMonth,
+  });
 }
+
 
 async function requestStockoutPredictions({ horizonDays, windowDays, asOfDate, medicines }) {
   return postForecastService("/predict/stockout", { horizonDays, windowDays, asOfDate, medicines });
@@ -66,4 +73,20 @@ function wakeForecastService() {
   fetch(`${base.replace(/\/$/, "")}/health`, { signal: AbortSignal.timeout(5000) }).catch(() => {});
 }
 
-module.exports = { requestForecast, requestStockoutPredictions, wakeForecastService, ForecastUnavailable };
+// One awaited health probe, used by the "Wake Up Forecast Service" button. The
+// client polls this endpoint, so each call stays short. A timeout, network error
+// or non-2xx answer just means "still waking", not a failure.
+async function checkForecastHealth() {
+  const base = process.env.FORECAST_SERVICE_URL;
+  if (!base) throw new ForecastUnavailable("Forecast service is not configured");
+  const timeout = Number(process.env.FORECAST_HEALTH_TIMEOUT_MS) || 8000;
+  try {
+    const res = await fetch(`${base.replace(/\/$/, "")}/health`, { signal: AbortSignal.timeout(timeout) });
+    return { healthy: res.ok };
+  } catch {
+    return { healthy: false };
+  }
+}
+
+module.exports = { requestForecast, requestStockoutPredictions, wakeForecastService, ForecastUnavailable,checkForecastHealth };
+

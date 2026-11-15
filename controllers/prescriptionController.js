@@ -32,13 +32,54 @@ exports.getPrescriptionsByPatient = async (req, res) => {
   }
 };
 
-// Pharmacy counter's inbound queue: every item still awaiting action, oldest first.
+// Pharmacy counter's queue: every prescription not yet handed to billing
+// (pending ones and fully resolved ones awaiting "Send to Billing"), oldest first.
 exports.getPharmacyQueue = async (req, res) => {
   try {
-    const prescriptions = await Prescription.find({ status: "PENDING" }).sort({ createdAt: 1 });
+    const prescriptions = await Prescription.find({ handedToBilling: { $ne: true } }).sort({ createdAt: 1 });
     res.json(prescriptions);
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+// Takes a resolved prescription off the queue and, once every prescription of
+// the visit has been handed over, advances the visit session to
+// READY_FOR_PAYMENT (or CANCELED if there is nothing to bill; see
+// resolveSessionIfDone). Dispensing/rejecting alone never moves the visit on.
+//
+// Partly dispensed items (stock ran short) can be sent too: the pharmacist is
+// accepting what was handed over, so PARTIAL items are closed as DISPENSED at
+// their dispensed quantity (qtyDispensed < qtyPrescribed stays on record).
+// Items nothing has been done on (QUEUED) still block the handoff.
+exports.handoffToBilling = async (req, res) => {
+  const dbSession = await mongoose.startSession();
+  try {
+    let result;
+    await dbSession.withTransaction(async () => {
+      const prescription = await Prescription.findById(req.params.id).session(dbSession);
+      if (!prescription) throw new HttpError(404, "Prescription not found");
+      if (prescription.items.some((i) => i.status === "QUEUED")) {
+        throw new HttpError(409, "Some medicines are still waiting — dispense or reject them before sending to billing");
+      }
+
+      const visitSession = await VisitSession.findById(prescription.visitSessionId).session(dbSession);
+      if (!visitSession) throw new HttpError(404, "Visit session not found");
+
+      prescription.items.forEach((i) => {
+        if (i.status === "PARTIAL") i.status = "DISPENSED";
+      });
+      // Mark as handed over first so the "anything left to hand over" check
+      // inside resolveSessionIfDone excludes this prescription.
+      prescription.handedToBilling = true;
+      await resolveSessionIfDone(prescription, visitSession, dbSession, req.user?.name, { advance: true });
+      result = prescription;
+    });
+    res.json({ prescription: result, visitSessionId: result.visitSessionId });
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message });
+  } finally {
+    dbSession.endSession();
   }
 };
 
@@ -116,11 +157,14 @@ exports.createPrescription = async (req, res) => {
 };
 
 // Recomputes the prescription's overall status and, if nothing is left
-// QUEUED, checks whether the owning visit session can move on:
+// QUEUED/PARTIAL, checks whether the owning visit session can move on:
 //  - if the session's cancellation was pending, finalize it to CANCELED
-//  - otherwise, if every prescription tied to the session is resolved,
-//    advance it to READY_FOR_PAYMENT
-async function resolveSessionIfDone(prescription, visitSession, dbSession, actor) {
+//  - otherwise the visit stays PENDING_PHARMACY until the pharmacist clicks
+//    "Send to Billing" (advance: true). At that point, once every
+//    prescription of the visit has been handed over, it moves to
+//    READY_FOR_PAYMENT, or to CANCELED if there is nothing at all to bill
+//    (every medicine rejected and no doctor/center fee).
+async function resolveSessionIfDone(prescription, visitSession, dbSession, actor, { advance = false } = {}) {
   prescription.recomputeStatus();
   await prescription.save({ session: dbSession });
 
@@ -134,8 +178,21 @@ async function resolveSessionIfDone(prescription, visitSession, dbSession, actor
 
   if (visitSession.cancelRequested) {
     visitSession.pushStatus("CANCELED", actor, "Cancellation resolved after pharmacy queue cleared");
-  } else if (visitSession.status === "PENDING_PHARMACY") {
-    visitSession.pushStatus("READY_FOR_PAYMENT", actor);
+  } else if (advance && visitSession.status === "PENDING_PHARMACY") {
+    const notHanded = await Prescription.countDocuments({
+      visitSessionId: visitSession._id,
+      handedToBilling: { $ne: true },
+    }).session(dbSession);
+    if (notHanded > 0) return;
+
+    const total = visitSession.lineItems.reduce((sum, li) => sum + li.amount, 0);
+    if (total > 0) {
+      visitSession.pushStatus("READY_FOR_PAYMENT", actor);
+    } else {
+      visitSession.pushStatus("CANCELED", actor, "All medicines rejected and nothing to bill");
+    }
+  } else {
+    return;
   }
   await visitSession.save({ session: dbSession });
 }

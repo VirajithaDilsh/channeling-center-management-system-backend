@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { verifyToken, requirePermission } = require("../middleware/authMiddleware");
+const { verifyToken, requirePermission, requireAdmin } = require("../middleware/authMiddleware");
 
 const {
   createDoctor,
@@ -18,7 +18,8 @@ const {
   getMySchedules,
   createMySchedule,
   updateMySchedule,
-  deleteMySchedule
+  deleteMySchedule,
+  setDoctorPassword
 } = require("../controllers/doctorController");
 
 router.use(verifyToken);
@@ -41,6 +42,8 @@ router.get("/", requirePermission("doctors_read", "doctors_allow_all"), getDocto
 router.get("/:id", requirePermission("doctors_read", "doctors_allow_all"), getDoctorById);
 // Bookable dates for the appointment form — also open to anyone who can book.
 router.get("/:id/availability", requirePermission("doctors_read", "doctors_allow_all", "appointments_write", "appointments_allow_all"), getDoctorAvailability);
+// Admin-only: create or reset the doctor's login password.
+router.put("/:id/password", requireAdmin, setDoctorPassword);
 router.put("/:id", requirePermission("doctors_edit", "doctors_allow_all"), updateDoctor);
 router.delete("/:id", requirePermission("doctors_edit", "doctors_allow_all"), deleteDoctor);
 

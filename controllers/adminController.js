@@ -152,6 +152,27 @@ exports.updateAdmin = async (req, res) => {
 };
 
 
+// Admin-only: set another user's password. The new password is never echoed back.
+exports.resetAdminPassword = async (req, res) => {
+  try {
+    const { newPassword } = req.body || {};
+    if (typeof newPassword !== "string" || newPassword.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    }
+
+    const admin = await Admin.findById(req.params.id);
+    if (!admin) return res.status(404).json({ message: "User not found" });
+
+    // Assign + save so the pre("save") hook hashes it.
+    admin.password = newPassword;
+    await admin.save();
+
+    res.json({ message: "Password reset successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Could not reset the password" });
+  }
+};
+
 exports.deleteAdmin = async (req, res) => {
 
   try {
